@@ -3,15 +3,16 @@
 package com.grierforensics.greatdane
 
 import java.util.logging.Logger
-import javax.ws.rs.WebApplicationException
-import javax.ws.rs.core.Response
+import javax.ws.rs.container.{ContainerRequestContext, ContainerRequestFilter}
+import javax.ws.rs.core.{HttpHeaders, Response}
 import javax.ws.rs.ext.{ExceptionMapper, Provider}
+import javax.ws.rs.{NotAuthorizedException, Priorities, WebApplicationException}
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.LazyLogging
-import org.eclipse.jetty.server.{Server, ServerConnector}
+import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.{DefaultServlet, ServletContextHandler, ServletHolder}
 import org.glassfish.jersey.logging.LoggingFeature
 import org.glassfish.jersey.model.ContractProvider
@@ -37,6 +38,30 @@ class ScalaJacksonProvider extends JacksonJaxbJsonProvider(
   new ObjectMapper().registerModule(DefaultScalaModule), JacksonJaxbJsonProvider.DEFAULT_ANNOTATIONS
 )
 
+/** Ensures the HTTP request is authenticated via API Key */
+@Secured
+@Provider
+//@Priority(Priorities.AUTHENTICATION)
+class AuthenticationFilter extends ContainerRequestFilter {
+  override def filter(requestContext: ContainerRequestContext): Unit = {
+    val authorizationHeader = requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)
+
+    if (authorizationHeader == null || authorizationHeader == "") {
+      throw new NotAuthorizedException("Authorization header missing or invalid")
+    }
+
+    if (!keyValid(authorizationHeader)) {
+      requestContext.abortWith(
+        Response.status(Response.Status.UNAUTHORIZED).build()
+      )
+    }
+  }
+
+  private def keyValid(key: String): Boolean = {
+    key == Settings.Default.ApiKey
+  }
+}
+
 /**
   *
   * References used for constructing embedded server with static content:
@@ -50,9 +75,10 @@ class Service(connector: Connector, port: Int) extends LazyLogging {
   private val context = new ServletContextHandler(server, "/")
 
   private val apiConfig = new ResourceConfig
-  apiConfig.register(new ScalaJacksonProvider(), ContractProvider.NO_PRIORITY)
   apiConfig.register(new CatchAllExceptionMapper, ContractProvider.NO_PRIORITY)
+  apiConfig.register(new ScalaJacksonProvider(), ContractProvider.NO_PRIORITY)
   apiConfig.register(new ApiResource(connector), ContractProvider.NO_PRIORITY)
+  apiConfig.register(new AuthenticationFilter, Priorities.AUTHENTICATION)
   apiConfig.register(new LoggingFeature(Logger.getLogger(getClass.getName),
     LoggingFeature.Verbosity.HEADERS_ONLY), ContractProvider.NO_PRIORITY)
 

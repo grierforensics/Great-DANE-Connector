@@ -2,6 +2,7 @@
 
 package com.grierforensics.greatdane
 
+
 // TODO: change engineHost/Port to an engine URL
 class Connector(engineHost: String, enginePort: Int) {
 
@@ -9,8 +10,8 @@ class Connector(engineHost: String, enginePort: Int) {
 
   }
 
-  def deprovisionUser(emailAddress: String): Unit = {
-
+  def deprovisionUser(emailAddress: String): Option[Seq[String]] = {
+    Some(Seq())
   }
 
 }

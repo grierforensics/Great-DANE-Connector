@@ -16,6 +16,7 @@ object Settings {
     val Port = config.getInt("port")
     val EngineHost = config.getString("engine.host")
     val EnginePort = config.getInt("engine.port")
+    val ApiKey = config.getString("apiKey")
     val DnsServers = config.getStringList("dns").asScala
   }
 }

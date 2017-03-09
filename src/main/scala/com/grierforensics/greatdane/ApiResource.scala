@@ -2,12 +2,13 @@
 
 package com.grierforensics.greatdane
 
-import java.util
 import javax.ws.rs._
 import javax.ws.rs.core.MediaType
 
-case class Body(name: String)
+case class ProvisionRequest(name: Option[String], certificates: Option[Seq[String]])
+case class ProvisionResponse(privateKey: String, certificate: String)
 
+@Secured
 @Path("/v1/")
 @Consumes(Array(MediaType.APPLICATION_JSON))
 @Produces(Array(MediaType.APPLICATION_JSON))
@@ -15,22 +16,22 @@ class ApiResource(connector: Connector) {
 
   @POST
   @Path("/user/{email}")
-  def provisionUser(@PathParam("email") emailAddress: String, body: Body): util.ArrayList[String] = {
-    println(body.name)
-
+  def provisionUser(@PathParam("email") emailAddress: String, body: ProvisionRequest): Option[ProvisionResponse] = {
     connector.provisionUser(emailAddress, Seq())
 
-    // Test JSON serialization
-    val al = new util.ArrayList[String]()
-    al.add("hello")
-    al.add("world")
-    al
+    if (body == null || (body != null && body.certificates.getOrElse(Seq()).isEmpty)) {
+      Some(ProvisionResponse("<private key>", "<certificate>"))
+    } else {
+      None
+    }
   }
 
   @DELETE
   @Path("/user/{email}")
   def deprovisionUser(@PathParam("email") emailAddress: String): Unit = {
-    connector.deprovisionUser(emailAddress)
+    connector.deprovisionUser(emailAddress).orElse(
+      throw new NotFoundException(s"Email address $emailAddress not found")
+    )
   }
 
   @PUT
