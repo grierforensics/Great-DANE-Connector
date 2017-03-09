@@ -6,13 +6,18 @@ import java.util
 import javax.ws.rs._
 import javax.ws.rs.core.MediaType
 
-@Path("/api/v1/")
+case class Body(name: String)
+
+@Path("/v1/")
 @Consumes(Array(MediaType.APPLICATION_JSON))
 @Produces(Array(MediaType.APPLICATION_JSON))
-class Resource(connector: Connector) {
+class ApiResource(connector: Connector) {
+
   @POST
   @Path("/user/{email}")
-  def provisionUser(@PathParam("email") emailAddress: String): util.ArrayList[String] = {
+  def provisionUser(@PathParam("email") emailAddress: String, body: Body): util.ArrayList[String] = {
+    println(body.name)
+
     connector.provisionUser(emailAddress, Seq())
 
     // Test JSON serialization

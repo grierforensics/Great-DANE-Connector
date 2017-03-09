@@ -7,10 +7,12 @@ import javax.ws.rs.WebApplicationException
 import javax.ws.rs.core.Response
 import javax.ws.rs.ext.{ExceptionMapper, Provider}
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.LazyLogging
-import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.servlet.{ServletContextHandler, ServletHolder}
+import org.eclipse.jetty.server.{Server, ServerConnector}
+import org.eclipse.jetty.servlet.{DefaultServlet, ServletContextHandler, ServletHolder}
 import org.glassfish.jersey.logging.LoggingFeature
 import org.glassfish.jersey.model.ContractProvider
 import org.glassfish.jersey.server.ResourceConfig
@@ -31,19 +33,39 @@ class CatchAllExceptionMapper extends ExceptionMapper[Exception] with LazyLoggin
   }
 }
 
+class ScalaJacksonProvider extends JacksonJaxbJsonProvider(
+  new ObjectMapper().registerModule(DefaultScalaModule), JacksonJaxbJsonProvider.DEFAULT_ANNOTATIONS
+)
+
+/**
+  *
+  * References used for constructing embedded server with static content:
+  * - http://stackoverflow.com/a/20223103/1689220
+  *
+  * @param connector
+  * @param port
+  */
 class Service(connector: Connector, port: Int) extends LazyLogging {
-  private val config = new ResourceConfig
-  config.register(new JacksonJaxbJsonProvider(), ContractProvider.NO_PRIORITY)
-  config.register(new CatchAllExceptionMapper, ContractProvider.NO_PRIORITY)
-  config.register(new Resource(connector), ContractProvider.NO_PRIORITY)
-  config.register(new LoggingFeature(Logger.getLogger(getClass.getName),
+  private val server = new Server(port)
+  private val context = new ServletContextHandler(server, "/")
+
+  private val apiConfig = new ResourceConfig
+  apiConfig.register(new ScalaJacksonProvider(), ContractProvider.NO_PRIORITY)
+  apiConfig.register(new CatchAllExceptionMapper, ContractProvider.NO_PRIORITY)
+  apiConfig.register(new ApiResource(connector), ContractProvider.NO_PRIORITY)
+  apiConfig.register(new LoggingFeature(Logger.getLogger(getClass.getName),
     LoggingFeature.Verbosity.HEADERS_ONLY), ContractProvider.NO_PRIORITY)
 
-  private val servlet = new ServletHolder(new ServletContainer(config))
-  private val server = new Server(port)
+  // The API servlet provides the entire REST API
+  private val apiServlet = new ServletHolder("api", new ServletContainer(apiConfig))
+  context.addServlet(apiServlet, "/api/*")
 
-  private val context = new ServletContextHandler(server, "/")
-  context.addServlet(servlet, "/*")
+  // The default servlet serves static HTML content, such as the API docs
+  private val defaultServlet = new ServletHolder("default", classOf[DefaultServlet])
+  defaultServlet.setInitParameter("resourceBase", "src/main/webapp")
+  defaultServlet.setInitParameter("dirAllowed", "true")
+  context.addServlet(defaultServlet, "/")
+
 
   /** Runs the service indefinitely */
   def run(): Unit = {

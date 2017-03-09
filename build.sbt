@@ -21,8 +21,10 @@ libraryDependencies ++= Seq(
   "org.glassfish.jersey.containers" % "jersey-container-jetty-http" % "2.25.1",
 
   "com.fasterxml.jackson.jaxrs" % "jackson-jaxrs-json-provider" % "2.8.7",
+  "com.fasterxml.jackson.module" % "jackson-module-scala_2.12" % "2.8.7",
 
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
+  "commons-io" % "commons-io" % "2.5" % "test",
 
   "commons-daemon" % "commons-daemon" % "1.0.15"
 )
