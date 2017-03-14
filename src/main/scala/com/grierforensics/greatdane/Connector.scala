@@ -26,12 +26,11 @@ class Connector(engineHost: String, enginePort: Int) {
   val dnsModifier: DnsModifier = new InMemoryDns
 
   def provisionUser(emailAddress: String, certificates: Seq[String]): Unit = {
-    val domain = {
-      val start = emailAddress.lastIndexOf('@') + 1
-      if (start == 0) {
-        throw new IllegalArgumentException("invalid email address")
-      }
-      emailAddress.substring(start)
+
+    val domain = emailDomain(emailAddress)
+
+    if (certificates.isEmpty) {
+      // make key + cert
     }
 
     val client = HttpClients.createDefault()
@@ -72,6 +71,14 @@ class Connector(engineHost: String, enginePort: Int) {
     Some(Seq())
   }
 
+
+  def emailDomain(emailAddress: String): String = {
+    val start = emailAddress.lastIndexOf('@') + 1
+    if (start == 0) {
+      throw new IllegalArgumentException("invalid email address")
+    }
+    emailAddress.substring(start)
+  }
 }
 
 object Connector {
