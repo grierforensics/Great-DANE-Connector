@@ -30,8 +30,9 @@ libraryDependencies ++= Seq(
 
   "org.apache.httpcomponents" % "httpclient" % "4.5.3",
 
+  "commons-io" % "commons-io" % "2.5",
+
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
-  "commons-io" % "commons-io" % "2.5" % "test",
 
   "commons-daemon" % "commons-daemon" % "1.0.15"
 )

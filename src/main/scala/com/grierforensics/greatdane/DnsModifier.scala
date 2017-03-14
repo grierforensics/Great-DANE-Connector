@@ -2,18 +2,12 @@
 
 package com.grierforensics.greatdane
 
-trait DnsRecord {
-
-  def name: String
-  def rrtype: String
-  def ttl: Int = -1
-  def content: String
-  // def content: Array[Byte]
-}
+import org.xbill.DNS.Record
 
 trait DnsModifier {
   def createZone(zone: String)
   def removeZone(zone: String)
-  def addRecord(zone: String, record: DnsRecord)
+  def addRecord(zone: String, record: Record)
+  def addRecords(zone: String, records: Seq[Record]): Unit = records.foreach(addRecord(zone, _))
   def removeRecords(zone: String, name: String)
 }

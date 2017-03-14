@@ -19,11 +19,17 @@ class ApiResource(connector: Connector) {
   def provisionUser(@PathParam("email") emailAddress: String, body: ProvisionRequest): Option[ProvisionResponse] = {
     connector.provisionUser(emailAddress, Seq())
 
-    if (body == null || (body != null && body.certificates.getOrElse(Seq()).isEmpty)) {
-      Some(ProvisionResponse("<private key>", "<certificate>"))
+    val certificates = if (body == null || (body != null && body.certificates.getOrElse(Seq()).isEmpty)) {
+      Seq()
     } else {
-      None
+      body.certificates.get
     }
+
+    val (privKey, cert) = connector.provisionUser(emailAddress, certificates)
+
+    if (privKey.isDefined && cert.isDefined) {
+      Some(ProvisionResponse(privKey.get, cert.get))
+    } else None
   }
 
   @DELETE
