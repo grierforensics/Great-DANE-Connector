@@ -23,6 +23,13 @@ libraryDependencies ++= Seq(
   "com.fasterxml.jackson.jaxrs" % "jackson-jaxrs-json-provider" % "2.8.7",
   "com.fasterxml.jackson.module" % "jackson-module-scala_2.12" % "2.8.7",
 
+  "dnsjava" % "dnsjava" % "2.1.8",
+
+  "org.bouncycastle" % "bcprov-jdk15on" % "1.56",
+  "org.bouncycastle" % "bcmail-jdk15on" % "1.56",
+
+  "org.apache.httpcomponents" % "httpclient" % "4.5.3",
+
   "org.scalatest" %% "scalatest" % "3.0.0" % "test",
   "commons-io" % "commons-io" % "2.5" % "test",
 
