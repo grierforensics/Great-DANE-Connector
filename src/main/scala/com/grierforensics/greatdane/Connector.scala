@@ -2,39 +2,35 @@
 
 package com.grierforensics.greatdane
 
-import java.net.{URI, URL}
+import java.security.PrivateKey
 import java.security.cert.X509Certificate
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.apache.http.HttpHeaders
-import org.apache.http.client.methods.{HttpGet, HttpPost}
-import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.HttpClients
-import org.apache.http.util.EntityUtils
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier
 import org.bouncycastle.cert.X509CertificateHolder
-import org.bouncycastle.cert.dane.{DANEEntry, DANEEntryFactory, TruncatingDigestCalculator}
+import org.bouncycastle.cert.dane.{DANEEntry, DANEEntryFactory, DANEEntrySelectorFactory, TruncatingDigestCalculator}
+import org.bouncycastle.operator.DigestCalculator
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder
 import org.bouncycastle.util.encoders.Hex
 import org.xbill.DNS._
 
 case class DnsParams(name: String, certificateUsage: Int, selector: Int, matchingType: Int, certificateData: String)
 
-// TODO: change engineHost/Port to an engine URL
-class Connector(engineHost: String, enginePort: Int) {
+case class KeyAndCert(privKey: PrivateKey, cert: X509Certificate) {
+  def pemKey: String = Converters.toPem(privKey)
+  def pemCert: String = Converters.toPem(cert)
+}
 
-  val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
+class Connector(dns: DnsModifier = new InMemoryDns) {
 
-  val engineUri = new URI("http", null, engineHost, enginePort, null, null, null)
+  def provisionUser(emailAddress: String, certificates: Seq[String]): Option[KeyAndCert] = {
+    provisionUserX509(emailAddress, certificates.map(Converters.fromPem))
+  }
 
-  val dnsModifier: DnsModifier = new InMemoryDns
-
-  def provisionUser(emailAddress: String, certificates: Seq[String]): (Option[String], Option[String]) = {
+  def provisionUserX509(emailAddress: String, certificates: Seq[X509Certificate]): Option[KeyAndCert] = {
     val domain = emailDomain(emailAddress)
 
-    def addRecord(certs: Seq[X509Certificate]): Unit = {
+    def addRecords(certs: Seq[X509Certificate]): Unit = {
       val rrecords: Seq[Record] = certs map { cert =>
         val entry = createEntry(emailAddress, cert)
 
@@ -47,42 +43,47 @@ class Connector(engineHost: String, enginePort: Int) {
         )
       }
 
-      dnsModifier.addRecords(domain, rrecords)
+      dns.addRecords(domain, rrecords)
     }
 
     if (certificates.isEmpty) {
       val (privKey, cert) = CertificateGenerator.makeKeyAndCertificate(emailAddress)
-      addRecord(Seq(cert))
-      (Some(CertificateGenerator.toPem(privKey)), Some(CertificateGenerator.toPem(cert)))
+      addRecords(Seq(cert))
+      Some(KeyAndCert(privKey, cert))
     } else {
-      addRecord(certificates.map(CertificateGenerator.fromPem))
-      (None, None)
+      addRecords(certificates)
+      None
     }
   }
 
-  val TruncatingDigestCalculator = {
+  def deprovisionUser(emailAddress: String): Unit = {
+    val selector = selectorFactory.createSelector(emailAddress)
+    val domain = emailDomain(emailAddress)
+    val rr = new SMIMEARecord(new Name(selector.getDomainName + '.'), DClass.IN, TTL.MAX_VALUE, 3, 0, 0, Array())
+
+    dns.removeRecords(domain, rr.getName.toString)
+  }
+
+  private val truncatingDigestCalculator: DigestCalculator = {
     // Sample usage: https://github.com/bcgit/bc-java/blob/master/pkix/src/test/java/org/bouncycastle/cert/test/DANETest.java
-    val digestCalculatorProvider = new JcaDigestCalculatorProviderBuilder().setProvider(CertificateGenerator.Provider).build()
+    val digestCalculatorProvider = new JcaDigestCalculatorProviderBuilder().setProvider(Settings.SecurityProvider).build()
     val sha256DigestCalculator = digestCalculatorProvider.get(new AlgorithmIdentifier(NISTObjectIdentifiers.id_sha256))
     new TruncatingDigestCalculator(sha256DigestCalculator)
   }
 
-  val EntryFactory = new DANEEntryFactory(TruncatingDigestCalculator)
+  private val selectorFactory = new DANEEntrySelectorFactory(truncatingDigestCalculator)
+  private val entryFactory = new DANEEntryFactory(truncatingDigestCalculator)
 
   private def createEntry(emailAddress: String, encodedCertificate: Array[Byte]): DANEEntry = {
-    EntryFactory.createEntry(emailAddress, new X509CertificateHolder(encodedCertificate))
+    // TODO: support different certificate usages
+    entryFactory.createEntry(emailAddress, new X509CertificateHolder(encodedCertificate))
   }
 
   private def createEntry(emailAddress: String, certificate: X509Certificate): DANEEntry = {
     createEntry(emailAddress, certificate.getEncoded)
   }
 
-  def deprovisionUser(emailAddress: String): Option[Seq[String]] = {
-    Some(Seq())
-  }
-
-
-  def emailDomain(emailAddress: String): String = {
+  private def emailDomain(emailAddress: String): String = {
     val start = emailAddress.lastIndexOf('@') + 1
     if (start == 0) {
       throw new IllegalArgumentException("invalid email address")

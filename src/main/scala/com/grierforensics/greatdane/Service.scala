@@ -58,7 +58,7 @@ class AuthenticationFilter extends ContainerRequestFilter {
   }
 
   private def keyValid(key: String): Boolean = {
-    key == Settings.Default.ApiKey
+    key == Settings.ApiKey
   }
 }
 
@@ -112,10 +112,8 @@ object Service extends LazyLogging {
   SLF4JBridgeHandler.install()
 
   def main(args: Array[String]): Unit = {
-    val connector = new Connector(Settings.Default.EngineHost, Settings.Default.EnginePort)
-    logger.info(s"Using DNS addresses: ${Settings.Default.DnsServers.mkString(", ")}")
-
-    val port = Settings.Default.Port
+    val connector = new Connector()
+    val port = Settings.Port
     val service = new Service(connector, port)
     service.run()
   }

@@ -4,18 +4,16 @@ package com.grierforensics.greatdane
 
 import java.io.{ByteArrayOutputStream, OutputStream}
 import java.math.BigInteger
-import java.security.cert.X509Certificate
 import java.security._
+import java.security.cert.X509Certificate
 import java.util.Date
 
 import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x509._
-import org.bouncycastle.cert.{X509CertificateHolder, X509ExtensionUtils}
+import org.bouncycastle.cert.X509ExtensionUtils
 import org.bouncycastle.cert.jcajce.{JcaX509CertificateConverter, JcaX509v3CertificateBuilder}
 import org.bouncycastle.crypto.digests.SHA1Digest
-import org.bouncycastle.jce.provider.BouncyCastleProvider
-import org.bouncycastle.openssl.PEMParser
 import org.bouncycastle.operator.DigestCalculator
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 
@@ -49,52 +47,62 @@ class SHA1DigestCalculator extends DigestCalculator {
   * https://github.com/bcgit/bc-java/blob/master/mail/src/test/java/org/bouncycastle/mail/smime/test/NewSMIMEEnvelopedTest.java
   */
 object CertificateGenerator {
-  val Provider = new BouncyCastleProvider
-  Security.addProvider(Provider)
-
-  val SignDN = "C=US, ST=Maryland, L=Baltimore, O=Grier Forensics, CN=Great DANE Connector"
-
-  val rand = new SecureRandom()
-
-  private val CertificateConverter = new JcaX509CertificateConverter().setProvider(Provider)
+  private val Srand = new SecureRandom()
 
   // TODO: make algo configurable (e.g. RSA, ECDSA, AES, etc.)
   // See: https://github.com/bcgit/bc-java/blob/master/mail/src/test/java/org/bouncycastle/mail/smime/test/CMSTestUtil.java
-  val kpg = KeyPairGenerator.getInstance("RSA", Provider)
-  kpg.initialize(2048, rand)
+  private val kpg = KeyPairGenerator.getInstance("RSA", Settings.SecurityProvider)
+  kpg.initialize(2048, Srand)
 
-  val ExpirationDays = 365
+  // TODO: load existing key pair from Settings
+  private val SigningKeyPair = makeKeyPair
 
-  val extUtils = new X509ExtensionUtils(new SHA1DigestCalculator)
+  private val ExtUtils = new X509ExtensionUtils(new SHA1DigestCalculator)
 
+  // TODO: not guaranteed to be unique
+  def serialNumber(): BigInteger = BigInteger.probablePrime(20*8, Srand)
+
+  /** Creates a new 2048-bit RSA key pair
+    *
+    * @return new RSA KeyPair
+    */
+  def makeKeyPair: KeyPair = kpg.generateKeyPair()
+
+  /** Create new private key and public S/MIME certificate for the given email address
+    *
+    * @param emailAddress Email address for which to create S/MIME certificate
+    * @return new private key and X.509 certificate
+    */
   def makeKeyAndCertificate(emailAddress: String): (PrivateKey, X509Certificate) = {
-    val signKP = makeKeyPair
     val reciKP = makeKeyPair
-    val reciCert = makeCertificate(reciKP, emailAddress, signKP, SignDN)
+    val reciCert = makeCertificate(reciKP, emailAddress, SigningKeyPair, Settings.DistinguishedName)
     (reciKP.getPrivate, reciCert)
   }
 
-  def makeKeyPair: KeyPair = kpg.generateKeyPair()
-
-  def makeCertificate(subKP: KeyPair, subEmail: String, issKP: KeyPair, issDN: String): X509Certificate =
-    makeCertificate(subKP, subEmail, issKP, issDN, ca = false)
-
-  def makeCACertificate(subKP: KeyPair, subEmail: String, issKP: KeyPair, issDN: String): X509Certificate =
-    makeCertificate(subKP, subEmail, issKP, issDN, ca = true)
-
-  private def makeCertificate(subKP: KeyPair, subEmail: String, issKP: KeyPair, issDN: String, ca: Boolean): X509Certificate = {
-    val subPub = subKP.getPublic
-    val issPriv = issKP.getPrivate
-    val issPub = issKP.getPublic
+  /** Creates a new S/MIME certificate using the given KeyPairs and email address
+    *
+    * @param subjectKP key pair for certificate owner
+    * @param subjectEmail email address of certificate owner
+    * @param issuingKP key pair for signing authority (e.g. Great DANE Connector's keys)
+    * @param issuingDN Distinguished Name of signing authority
+    * @param ca whether to create a Certificate Authority certificate
+    * @return new X.509 S/MIME certificate
+    */
+  private def makeCertificate(subjectKP: KeyPair, subjectEmail: String,
+                              issuingKP: KeyPair, issuingDN: String,
+                      ca: Boolean = false): X509Certificate = {
+    val subPub = subjectKP.getPublic
+    val issPriv = issuingKP.getPrivate
+    val issPub = issuingKP.getPublic
 
     // Note: we set Subject: emailAddress=<email> for backwards compatibility
     // The correct place to set the email address is in the Subject Alternative Name extension
     val v3CertGen = new JcaX509v3CertificateBuilder(
-      new X500Name(issDN),
+      new X500Name(issuingDN),
       serialNumber(),
       new Date(System.currentTimeMillis()),
-      new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * ExpirationDays)),
-      new X500Name(s"emailAddress=$subEmail"),
+      new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * Settings.CertificateExpiryDays)),
+      new X500Name(s"emailAddress=$subjectEmail"),
       subPub)
 
     val contentSignerBuilder: JcaContentSignerBuilder = makeContentSignerBuilder(issPub)
@@ -145,10 +153,10 @@ object CertificateGenerator {
     v3CertGen.addExtension(
       Extension.subjectAlternativeName,
       false,
-      new GeneralNames(new GeneralName(GeneralName.rfc822Name, subEmail))
+      new GeneralNames(new GeneralName(GeneralName.rfc822Name, subjectEmail))
     )
 
-    val cert: X509Certificate = new JcaX509CertificateConverter().setProvider(Provider)
+    val cert: X509Certificate = new JcaX509CertificateConverter().setProvider(Settings.SecurityProvider)
       .getCertificate(v3CertGen.build(contentSignerBuilder.build(issPriv)))
 
     // If these throw exceptions we have a problem
@@ -158,84 +166,18 @@ object CertificateGenerator {
     cert
   }
 
-  def makeContentSignerBuilder(issPub: PublicKey): JcaContentSignerBuilder =
-    new JcaContentSignerBuilder("SHA256WithRSA").setProvider(Provider)
-  def createSubjectKeyId(pubKey: SubjectPublicKeyInfo): SubjectKeyIdentifier =
-    extUtils.createSubjectKeyIdentifier(pubKey)
-  def createSubjectKeyId(pubKey: PublicKey): SubjectKeyIdentifier =
-    extUtils.createSubjectKeyIdentifier(SubjectPublicKeyInfo.getInstance(pubKey.getEncoded))
-  def createAuthorityKeyId(pubKey: PublicKey): AuthorityKeyIdentifier =
-    extUtils.createAuthorityKeyIdentifier(SubjectPublicKeyInfo.getInstance(pubKey.getEncoded))
+  private def makeContentSignerBuilder(issPub: PublicKey): JcaContentSignerBuilder =
+    new JcaContentSignerBuilder("SHA256WithRSA").setProvider(Settings.SecurityProvider)
 
-  // TODO: not guaranteed to be unique
-  def serialNumber(): BigInteger = BigInteger.probablePrime(20*8, rand)
+  private def createSubjectKeyId(pubKey: SubjectPublicKeyInfo): SubjectKeyIdentifier =
+    ExtUtils.createSubjectKeyIdentifier(pubKey)
 
-  /** Converts an X509CertificateHolder to an X509Certificate */
-  def convert(ch: X509CertificateHolder): X509Certificate = CertificateConverter.getCertificate(ch)
+  private def createSubjectKeyId(pubKey: PublicKey): SubjectKeyIdentifier =
+    ExtUtils.createSubjectKeyIdentifier(SubjectPublicKeyInfo.getInstance(pubKey.getEncoded))
 
-  /** Encodes X.509 Certificate data to PEM */
-  def toPem(ch: X509CertificateHolder): String = toPem(convert(ch))
-  /*
-  def toPem(cert: X509Certificate): String = {
-    import java.io.StringWriter
+  private def createAuthorityKeyId(pubKey: PublicKey): AuthorityKeyIdentifier =
+    ExtUtils.createAuthorityKeyIdentifier(SubjectPublicKeyInfo.getInstance(pubKey.getEncoded))
 
-    import org.bouncycastle.openssl.jcajce.JcaPEMWriter
-
-    val sw = new StringWriter()
-    val pemWriter = new JcaPEMWriter(sw)
-    try {
-      pemWriter.writeObject(cert)
-    } finally {
-      pemWriter.close()
-    }
-    sw.toString
-  }
-
-  def toPem(key: PrivateKey): String = {
-    import java.io.StringWriter
-
-    import org.bouncycastle.openssl.jcajce.JcaPEMWriter
-
-    val sw = new StringWriter()
-    val pemWriter = new JcaPEMWriter(sw)
-    try {
-      pemWriter.writeObject(key)
-    } finally {
-      pemWriter.close()
-    }
-    sw.toString
-  }
-  */
-
-  def toPem[T](obj: T): String = {
-    import java.io.StringWriter
-
-    import org.bouncycastle.openssl.jcajce.JcaPEMWriter
-
-    val sw = new StringWriter()
-    val pemWriter = new JcaPEMWriter(sw)
-    try {
-      pemWriter.writeObject(obj)
-    } finally {
-      pemWriter.close()
-    }
-    sw.toString
-  }
-
-  /** Decode a PEM-encoded certificate into an X.509 Certificate object */
-  def fromPem(encoded: String): X509Certificate = {
-    import java.io.StringReader
-
-    val parser = new PEMParser(new StringReader(encoded))
-    val obj = parser.readObject()
-
-    obj match {
-      case holder: X509CertificateHolder => CertificateConverter.getCertificate(holder)
-      // TODO: support public keys, warn/error for private keys
-      // See https://gist.github.com/akorobov/6910564 for examples
-      case _ => throw new RuntimeException("Invalid PEM-encoded certificate.")
-    }
-  }
 
   def main(args: Array[String]): Unit = {
     if (args.length < 1) {
@@ -244,13 +186,8 @@ object CertificateGenerator {
     }
 
     val email = args(0)
-    val signKP = makeKeyPair
-    val reciKP = makeKeyPair
-    val reciCert = makeCertificate(reciKP, email, signKP, SignDN)
-
-    val pem = toPem(reciCert)
-    println(pem)
-
-    println(toPem(reciKP.getPrivate))
+    val (key, cert) = makeKeyAndCertificate(email)
+    println(Converters.toPem(cert))
+    println(Converters.toPem(key))
   }
 }

@@ -17,27 +17,29 @@ class ApiResource(connector: Connector) {
   @POST
   @Path("/user/{email}")
   def provisionUser(@PathParam("email") emailAddress: String, body: ProvisionRequest): Option[ProvisionResponse] = {
-    connector.provisionUser(emailAddress, Seq())
-
     val certificates = if (body == null || (body != null && body.certificates.getOrElse(Seq()).isEmpty)) {
       Seq()
     } else {
       body.certificates.get
     }
 
-    val (privKey, cert) = connector.provisionUser(emailAddress, certificates)
+    val keyAndCert = connector.provisionUser(emailAddress, certificates)
 
-    if (privKey.isDefined && cert.isDefined) {
-      Some(ProvisionResponse(privKey.get, cert.get))
-    } else None
+    keyAndCert flatMap { kc =>
+      Some(ProvisionResponse(kc.pemKey, kc.pemCert))
+    }
   }
 
   @DELETE
   @Path("/user/{email}")
   def deprovisionUser(@PathParam("email") emailAddress: String): Unit = {
-    connector.deprovisionUser(emailAddress).orElse(
+    connector.deprovisionUser(emailAddress)
+
+    // TODO: How to ensure 404 - Not Found is returned if user isn't in DNS?
+      /*.orElse(
       throw new NotFoundException(s"Email address $emailAddress not found")
     )
+    */
   }
 
   @PUT

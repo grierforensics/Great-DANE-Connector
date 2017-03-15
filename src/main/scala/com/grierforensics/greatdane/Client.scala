@@ -28,7 +28,7 @@ object Client {
     val uri = new URI(s"http://localhost:35353/api/v1/user/$emailAddress")
     val post = new HttpPost(uri)
     post.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
-    post.addHeader(HttpHeaders.AUTHORIZATION, Settings.Default.ApiKey)
+    post.addHeader(HttpHeaders.AUTHORIZATION, Settings.ApiKey)
 
     val req = ProvisionRequest(Some("Foo"), if (certPem.length > 0) Some(Seq(certPem)) else None)
     val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
