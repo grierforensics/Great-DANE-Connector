@@ -1,6 +1,6 @@
 // Copyright (c) 2017 Grier Forensics. All Rights Reserved.
 
-package com.grierforensics.greatdane
+package com.grierforensics.greatdane.connector
 
 import java.net.{HttpURLConnection, URL}
 

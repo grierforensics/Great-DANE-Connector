@@ -1,10 +1,11 @@
 // Copyright (c) 2017 Grier Forensics. All Rights Reserved.
 
-package com.grierforensics.greatdane
+package com.grierforensics.greatdane.connector
 
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
 
+import com.grierforensics.greatdane.connector.dns.{DnsZone, InMemoryZone}
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier
 import org.bouncycastle.cert.X509CertificateHolder
@@ -21,7 +22,7 @@ case class KeyAndCert(privKey: PrivateKey, cert: X509Certificate) {
   def pemCert: String = Converters.toPem(cert)
 }
 
-class Connector(dns: DnsModifier = new InMemoryDns) {
+class Connector(dns: DnsZone = new InMemoryZone) {
 
   def provisionUser(emailAddress: String, certificates: Seq[String]): Option[KeyAndCert] = {
     provisionUserX509(emailAddress, certificates.map(Converters.fromPem))

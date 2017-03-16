@@ -1,6 +1,6 @@
 // Copyright (c) 2017 Grier Forensics. All Rights Reserved.
 
-package com.grierforensics.greatdane;// Copyright (c) 2017 Grier Forensics. All Rights Reserved.
+package com.grierforensics.greatdane.connector;
 
 import javax.ws.rs.NameBinding;
 import java.lang.annotation.Retention;

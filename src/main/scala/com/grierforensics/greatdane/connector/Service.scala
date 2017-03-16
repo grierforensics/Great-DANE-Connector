@@ -1,6 +1,6 @@
 // Copyright (c) 2017 Grier Forensics. All Rights Reserved.
 
-package com.grierforensics.greatdane
+package com.grierforensics.greatdane.connector
 
 import java.util.logging.Logger
 import javax.ws.rs.container.{ContainerRequestContext, ContainerRequestFilter}

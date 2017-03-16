@@ -1,7 +1,8 @@
 // Copyright (c) 2017 Grier Forensics. All Rights Reserved.
 
-package com.grierforensics.greatdane
+package com.grierforensics.greatdane.connector
 
+import com.grierforensics.greatdane.connector.dns.DnsZone
 import org.scalatest.FlatSpec
 import org.xbill.DNS.{Record, SMIMEARecord}
 
@@ -22,12 +23,10 @@ class ConnectorSpec extends FlatSpec {
   }
 
   it should "add to DNS valid SMIMEA record(s) for the given email address in provisionUser" in {
-    val dns = new DnsModifier {
+    val dns = new DnsZone {
       var lastRecord: Record = _
       override def addRecord(zone: String, record: Record): Unit = lastRecord = record
       override def removeRecords(zone: String, name: String): Unit = lastRecord = null
-      override def createZone(zone: String): Unit = {}
-      override def removeZone(zone: String): Unit = {}
     }
 
     val connector = new Connector(dns)
@@ -42,7 +41,7 @@ class ConnectorSpec extends FlatSpec {
 
   it should "remove from DNS all SMIMEA record(s) for the given email address in deprovisionUser" in {
     // TODO: test removal of more than one record!
-    val dns = new DnsModifier {
+    val dns = new DnsZone {
       import scala.collection.mutable.{HashMap, MultiMap, Set}
       val records = new HashMap[String, Set[Record]] with MultiMap[String, Record]
       override def addRecord(zone: String, record: Record): Unit = {
@@ -51,8 +50,6 @@ class ConnectorSpec extends FlatSpec {
       override def removeRecords(zone: String, name: String): Unit = {
         records.remove(name)
       }
-      override def createZone(zone: String): Unit = {}
-      override def removeZone(zone: String): Unit = {}
     }
 
     val connector = new Connector(dns)

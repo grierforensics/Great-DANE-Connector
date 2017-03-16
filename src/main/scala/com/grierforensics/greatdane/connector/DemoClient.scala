@@ -1,6 +1,6 @@
 // Copyright (c) 2017 Grier Forensics. All Rights Reserved.
 
-package com.grierforensics.greatdane
+package com.grierforensics.greatdane.connector
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -14,7 +14,7 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 
-object Client {
+object DemoClient {
   def main(args: Array[String]): Unit = {
     //val host = args(0)
     //val port = args(1)
@@ -29,6 +29,7 @@ object Client {
     val post = new HttpPost(uri)
     post.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
     post.addHeader(HttpHeaders.AUTHORIZATION, Settings.ApiKey)
+    println(post.toString)
 
     val req = ProvisionRequest(Some("Foo"), if (certPem.length > 0) Some(Seq(certPem)) else None)
     val mapper = new ObjectMapper().registerModule(DefaultScalaModule)

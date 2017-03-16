@@ -1,13 +1,10 @@
 // Copyright (c) 2017 Grier Forensics. All Rights Reserved.
 
-package com.grierforensics.greatdane
+package com.grierforensics.greatdane.connector.dns
 
 import org.xbill.DNS.Record
 
-class ZoneFileWriter extends DnsModifier {
-  override def createZone(zone: String): Unit = ???
-
-  override def removeZone(zone: String): Unit = ???
+class ZoneFileWriter extends DnsZone {
 
   override def addRecord(zone: String, record: Record): Unit = ???
 
