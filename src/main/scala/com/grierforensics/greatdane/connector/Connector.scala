@@ -45,6 +45,7 @@ class Connector(dns: Seq[DnsZone]) {
 
         val rdata = entry.getRDATA
 
+        // TODO: move this to DNS-centric location to handle defaults (IN, TTL, etc.)
         new SMIMEARecord(
           // TODO: better way to create absolute name?
           new Name(entry.getDomainName + '.'),
@@ -69,6 +70,7 @@ class Connector(dns: Seq[DnsZone]) {
     val selector = selectorFactory.createSelector(emailAddress)
     val domain = emailDomain(emailAddress)
     val zone = zones.getOrElse(domain, throw DomainNotFoundException(domain))
+    // TODO: move this to DNS-centric location to handle defaults (IN, TTL, etc.)
     val rr = new SMIMEARecord(new Name(selector.getDomainName + '.'), DClass.IN, TTL.MAX_VALUE, 3, 0, 0, Array())
 
     zone.removeRecords(rr.getName.toString).orElse(throw EmailAddressNotFoundException(emailAddress))
@@ -105,6 +107,6 @@ class Connector(dns: Seq[DnsZone]) {
 object Connector {
   //def fromHex(s: String): Array[Byte] = Hex.decode(s)
 
-  def Default: Connector = new Connector(Settings.Zones.map(new InMemoryZone(_)))
+  def Default: Connector = new Connector(Settings.Zones.map(z => new InMemoryZone(z.origin)))
 
 }

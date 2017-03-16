@@ -23,9 +23,19 @@ object Settings {
   val Port: Int = config.getInt("port")
   val ApiKey: String = config.getString("apiKey")
 
-  val Zones: Seq[String] = config.getStringList("zones").asScala
+  case class ZoneFileDetails(origin: String, baseFile: String, outFile: String, writePeriod: Int)
+
+  val Zones: Seq[ZoneFileDetails] = config.getConfigList("zoneFiles").asScala.map { obj =>
+    ZoneFileDetails(
+      obj.getString("origin"),
+      obj.getString("baseFile"),
+      obj.getString("outFile"),
+      obj.getInt("writePeriod")
+    )
+  }
 
   val DnsServers: Seq[String] = config.getStringList("dns").asScala
+
 
   val DistinguishedName: String = "C=US,ST=Maryland,L=Baltimore,O=Grier Forensics,CN=Great DANE Connector"
   val CertificateExpiryDays: Int = 365

@@ -1,0 +1,7 @@
+$ORIGIN example.com.
+$TTL 300
+
+@ IN SOA ns1.example.com admin.example.com. 3014070234 30 30 1209600 30
+                NS              ns1.example.com.
+                NS              ns2.example.com.
+                MX      10      mail.example.com.

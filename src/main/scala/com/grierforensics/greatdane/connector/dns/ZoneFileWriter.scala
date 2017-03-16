@@ -9,4 +9,6 @@ class ZoneFileWriter(override val origin: String) extends DnsZone {
   override def addRecord(record: Record): Unit = ???
 
   override def removeRecords(name: String): Option[Set[Record]] = ???
+
+  override def records = ???
 }

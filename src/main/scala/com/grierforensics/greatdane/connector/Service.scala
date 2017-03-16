@@ -11,7 +11,7 @@ import javax.ws.rs.{NotAuthorizedException, Priorities, WebApplicationException}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.grierforensics.greatdane.connector.dns.InMemoryZone
+import com.grierforensics.greatdane.connector.dns.{DnsZoneFileWriter, InMemoryZone}
 import com.typesafe.scalalogging.LazyLogging
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.{DefaultServlet, ServletContextHandler, ServletHolder}
@@ -113,7 +113,22 @@ object Service extends LazyLogging {
   SLF4JBridgeHandler.install()
 
   def main(args: Array[String]): Unit = {
-    val connector = Connector.Default
+    val zones = Settings.Zones.map { z =>
+      val zone = new InMemoryZone(z.origin)
+      new Thread() {
+        val writer = new DnsZoneFileWriter(zone, z.baseFile, z.outFile)
+        override def run(): Unit = {
+          while (true) {
+            writer.writeZoneFile()
+            Thread.sleep(z.writePeriod)
+          }
+        }
+      }.start()
+      zone
+    }
+    val connector = new Connector(zones)
+    //val connector = Connector.Default
+
     val port = Settings.Port
     val service = new Service(connector, port)
     service.run()

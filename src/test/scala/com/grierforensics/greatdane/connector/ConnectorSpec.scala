@@ -32,6 +32,7 @@ class ConnectorSpec extends FlatSpec {
         lastRecord = null
         Some(s)
       }
+      override def records = Seq(lastRecord)
     }
 
     val connector = new Connector(dns)
@@ -48,26 +49,27 @@ class ConnectorSpec extends FlatSpec {
     // TODO: test removal of more than one record!
     val dns = new DnsZone {
       import scala.collection.mutable
-      val records = new mutable.HashMap[String, mutable.Set[Record]] with mutable.MultiMap[String, Record]
+      val rrecords = new mutable.HashMap[String, mutable.Set[Record]] with mutable.MultiMap[String, Record]
       override def origin: String = testOrigin
       override def addRecord(record: Record): Unit = {
-        records.addBinding(record.getName.toString, record)
+        rrecords.addBinding(record.getName.toString, record)
       }
       override def removeRecords(name: String): Option[Set[Record]] = {
-        records.remove(name).map(_.toSet)
+        rrecords.remove(name).map(_.toSet)
       }
+      override def records: Seq[Record] = rrecords.values.flatten.toSeq
     }
 
     val connector = new Connector(dns)
     connector.provisionUser(testAddress, Seq(testCertPem))
 
-    val name = dns.records.keys.head
-    val preRecords = dns.records.get(name)
+    val name = dns.rrecords.keys.head
+    val preRecords = dns.rrecords.get(name)
     assert(preRecords.isDefined && preRecords.get.size > 0)
 
     connector.deprovisionUser(testAddress)
 
-    val postRecords = dns.records.get(name)
+    val postRecords = dns.rrecords.get(name)
     assert(postRecords.isEmpty)
   }
 
@@ -89,6 +91,7 @@ class ConnectorSpec extends FlatSpec {
       override def addRecord(record: Record) = ???
       override def removeRecords(name: String) = None
       override def origin: String = testOrigin
+      override def records = Seq()
     })
 
     intercept[EmailAddressNotFoundException] {
