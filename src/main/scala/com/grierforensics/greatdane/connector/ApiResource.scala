@@ -23,7 +23,11 @@ class ApiResource(connector: Connector) {
       body.certificates.get
     }
 
-    val keyAndCert = connector.provisionUser(emailAddress, certificates)
+    val keyAndCert = try {
+      connector.provisionUser(emailAddress, certificates)
+    } catch {
+      case DomainNotFoundException(msg) => throw new BadRequestException(msg)
+    }
 
     keyAndCert flatMap { kc =>
       Some(ProvisionResponse(kc.pemKey, kc.pemCert))
@@ -33,13 +37,12 @@ class ApiResource(connector: Connector) {
   @DELETE
   @Path("/user/{email}")
   def deprovisionUser(@PathParam("email") emailAddress: String): Unit = {
-    connector.deprovisionUser(emailAddress)
-
-    // TODO: How to ensure 404 - Not Found is returned if user isn't in DNS?
-      /*.orElse(
-      throw new NotFoundException(s"Email address $emailAddress not found")
-    )
-    */
+    try {
+      connector.deprovisionUser(emailAddress)
+    } catch {
+      case DomainNotFoundException(msg) => throw new BadRequestException(msg)
+      case EmailAddressNotFoundException(msg) => throw new NotFoundException(msg)
+    }
   }
 
   @PUT

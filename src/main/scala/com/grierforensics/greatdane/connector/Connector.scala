@@ -22,7 +22,14 @@ case class KeyAndCert(privKey: PrivateKey, cert: X509Certificate) {
   def pemCert: String = Converters.toPem(cert)
 }
 
-class Connector(dns: DnsZone = new InMemoryZone) {
+case class EmailAddressNotFoundException(emailAddress: String) extends Exception(s"Email address not found: $emailAddress")
+case class DomainNotFoundException(domain: String) extends Exception(s"Invalid domain: $domain")
+
+class Connector(dns: Seq[DnsZone]) {
+  def this(dns: DnsZone) = this(Seq(dns))
+
+  import scala.collection.immutable.HashMap
+  val zones = HashMap(dns.map(z => (z.origin, z)):_*)
 
   def provisionUser(emailAddress: String, certificates: Seq[String]): Option[KeyAndCert] = {
     provisionUserX509(emailAddress, certificates.map(Converters.fromPem))
@@ -30,6 +37,7 @@ class Connector(dns: DnsZone = new InMemoryZone) {
 
   def provisionUserX509(emailAddress: String, certificates: Seq[X509Certificate]): Option[KeyAndCert] = {
     val domain = emailDomain(emailAddress)
+    val zone = zones.getOrElse(domain, throw DomainNotFoundException(domain))
 
     def addRecords(certs: Seq[X509Certificate]): Unit = {
       val rrecords: Seq[Record] = certs map { cert =>
@@ -44,7 +52,7 @@ class Connector(dns: DnsZone = new InMemoryZone) {
         )
       }
 
-      dns.addRecords(domain, rrecords)
+      zone.addRecords(rrecords)
     }
 
     if (certificates.isEmpty) {
@@ -60,9 +68,10 @@ class Connector(dns: DnsZone = new InMemoryZone) {
   def deprovisionUser(emailAddress: String): Unit = {
     val selector = selectorFactory.createSelector(emailAddress)
     val domain = emailDomain(emailAddress)
+    val zone = zones.getOrElse(domain, throw DomainNotFoundException(domain))
     val rr = new SMIMEARecord(new Name(selector.getDomainName + '.'), DClass.IN, TTL.MAX_VALUE, 3, 0, 0, Array())
 
-    dns.removeRecords(domain, rr.getName.toString)
+    zone.removeRecords(rr.getName.toString).orElse(throw EmailAddressNotFoundException(emailAddress))
   }
 
   private val truncatingDigestCalculator: DigestCalculator = {
@@ -94,5 +103,8 @@ class Connector(dns: DnsZone = new InMemoryZone) {
 }
 
 object Connector {
-  def fromHex(s: String): Array[Byte] = Hex.decode(s)
+  //def fromHex(s: String): Array[Byte] = Hex.decode(s)
+
+  def Default: Connector = new Connector(Settings.Zones.map(new InMemoryZone(_)))
+
 }

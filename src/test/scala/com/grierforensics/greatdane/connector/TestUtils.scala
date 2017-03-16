@@ -4,6 +4,7 @@ package com.grierforensics.greatdane.connector
 
 import java.security.cert.X509Certificate
 
+import com.grierforensics.greatdane.connector.dns.InMemoryZone
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x500.style.{BCStyle, IETFUtils}
 import org.bouncycastle.asn1.x509.{GeneralName, KeyPurposeId}
@@ -11,11 +12,14 @@ import org.bouncycastle.asn1.x509.{GeneralName, KeyPurposeId}
 object TestUtils {
 
   object Values {
+    val testOrigin = "example.com"
     val testAddress = "foo@example.com"
     // TODO: create a static certificate instead of dynamically creating one every time tests are run
     val (testKey, testCert) = CertificateGenerator.makeKeyAndCertificate(testAddress)
     val (testKeyPem, testCertPem) = (Converters.toPem(testKey), Converters.toPem(testCert))
   }
+
+  def makeTestConnector: Connector = new Connector(Seq(new InMemoryZone(Values.testOrigin)))
 
   def issuerDN(cert: X509Certificate): String = cert.getIssuerDN.toString
 

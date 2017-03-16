@@ -4,9 +4,9 @@ package com.grierforensics.greatdane.connector.dns
 
 import org.xbill.DNS.Record
 
-class ZoneFileWriter extends DnsZone {
+class ZoneFileWriter(override val origin: String) extends DnsZone {
 
-  override def addRecord(zone: String, record: Record): Unit = ???
+  override def addRecord(record: Record): Unit = ???
 
-  override def removeRecords(zone: String, name: String): Unit = ???
+  override def removeRecords(name: String): Option[Set[Record]] = ???
 }

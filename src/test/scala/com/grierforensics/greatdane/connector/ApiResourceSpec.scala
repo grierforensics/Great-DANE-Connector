@@ -6,6 +6,7 @@ import java.net.{HttpURLConnection, URL}
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.grierforensics.greatdane.connector.dns.InMemoryZone
 import org.apache.commons.io.IOUtils
 import org.scalatest.FlatSpec
 
@@ -18,7 +19,7 @@ class ApiResourceSpec extends FlatSpec {
   val port = 35354
   val enginePort = 25354
 
-  class TestConnector extends Connector {
+  /*class TestConnector extends Connector(new InMemoryZone(testOrigin)) {
     val users = new scala.collection.mutable.HashMap[String, Seq[String]]
 
     override def provisionUser(emailAddress: String, certificates: Seq[String]): Option[KeyAndCert] = {
@@ -32,8 +33,9 @@ class ApiResourceSpec extends FlatSpec {
       users.remove(emailAddress)
     }
   }
+  */
 
-  val service = new Service(new TestConnector, port)
+  val service = new Service(TestUtils.makeTestConnector, port)
   new Thread() {
     override def run(): Unit = {
       service.run()
@@ -125,7 +127,7 @@ class ApiResourceSpec extends FlatSpec {
   }
 
   it should "return nothing when certificates are specified to provisionUser" in {
-    val (code, resp) = post("/user/foo@example.com", """{"name": "foo", "certificates": ["bar"]}""")
+    val (code, resp) = post(s"/user/$testAddress", s"""{"name": "foo", "certificates": ["${testCertPem.replaceAll("[\\n\\r]+", "\\\\n")}"]}""")
     assert(code == 200)
 
     // Jackson Scala serializes None to the string "null", which is fine for now
@@ -133,7 +135,7 @@ class ApiResourceSpec extends FlatSpec {
   }
 
   it should "return a private key and cert when no body is provided to provisionUser" in {
-    val (code, resp) = post("/user/foo@example.com")
+    val (code, resp) = post(s"/user/$testAddress")
     assert(code == 200)
     val presp = Mapper.readValue(resp, classOf[ProvisionResponse])
     assert(presp.privateKey.nonEmpty, presp.certificate.nonEmpty)
@@ -141,8 +143,8 @@ class ApiResourceSpec extends FlatSpec {
 
   it should "return a private key and cert when no certificates are provided to provisionUser" in {
     for ((code, resp) <- Seq(
-      post("/user/foo@example.com", """{"name": "foo"}"""),
-      post("/user/foo@example.com", """{"name": "foo", "certificates": []}""")
+      post(s"/user/$testAddress", """{"name": "foo"}"""),
+      post(s"/user/$testAddress", """{"name": "foo", "certificates": []}""")
     )) {
       assert(code == 200)
       val presp = Mapper.readValue(resp, classOf[ProvisionResponse])
@@ -151,14 +153,25 @@ class ApiResourceSpec extends FlatSpec {
   }
 
   it should "return HTTP 204 on successful deprovisionUser" in {
-    val (code, resp) = delete("/user/foo@example.com")
+    post(s"/user/$testAddress", s"""{"name": "foo", "certificates": ["${testCertPem.replaceAll("[\\n\\r]+", "\\\\n")}"]}""")
+    val (code, resp) = delete(s"/user/$testAddress")
     assert(code == 204)
   }
 
-  // TODO
-  ignore should "return HTTP 404 if emailAddress doesn't exist in deprovisionUser" in {
-    val (code, resp) = delete("/user/dne@example.com")
+  it should "return HTTP 404 if emailAddress doesn't exist in deprovisionUser" in {
+    val (code, resp) = delete(s"/user/dne@$testOrigin")
     assert(code == 404)
+  }
+
+  it should "return HTTP 400 if the domain is invalid" in {
+    val badOrigin = testOrigin.replace("com", "net")
+
+    for ((code, resp) <- Seq(
+      post(s"/user/foo@$badOrigin"),
+      delete(s"/user/foo@$badOrigin")
+    )) {
+      assert(code == 400)
+    }
   }
 
   // all API endpoints return 401 if API key not specified

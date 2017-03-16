@@ -11,6 +11,7 @@ import javax.ws.rs.{NotAuthorizedException, Priorities, WebApplicationException}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.grierforensics.greatdane.connector.dns.InMemoryZone
 import com.typesafe.scalalogging.LazyLogging
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.{DefaultServlet, ServletContextHandler, ServletHolder}
@@ -112,7 +113,7 @@ object Service extends LazyLogging {
   SLF4JBridgeHandler.install()
 
   def main(args: Array[String]): Unit = {
-    val connector = new Connector()
+    val connector = Connector.Default
     val port = Settings.Port
     val service = new Service(connector, port)
     service.run()

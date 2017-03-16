@@ -22,6 +22,9 @@ object Settings {
 
   val Port: Int = config.getInt("port")
   val ApiKey: String = config.getString("apiKey")
+
+  val Zones: Seq[String] = config.getStringList("zones").asScala
+
   val DnsServers: Seq[String] = config.getStringList("dns").asScala
 
   val DistinguishedName: String = "C=US,ST=Maryland,L=Baltimore,O=Grier Forensics,CN=Great DANE Connector"

@@ -21,7 +21,7 @@ class Daemon extends LazyLogging {
   def start(): Unit = {
     new Thread() {
       override def run(): Unit = {
-        val connector = new Connector()
+        val connector = Connector.Default
         //logger.info(s"Using DNS addresses: ${Settings.Default.DnsServers.mkString(", ")}")
 
         val port = Settings.Port
