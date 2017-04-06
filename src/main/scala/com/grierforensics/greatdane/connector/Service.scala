@@ -109,10 +109,16 @@ class Service(connector: Connector, port: Int) extends LazyLogging {
 
 object Service extends LazyLogging {
 
-  SLF4JBridgeHandler.removeHandlersForRootLogger()
-  SLF4JBridgeHandler.install()
+  /** Installs the SLF4J bridge so we can use Logback for logging */
+  def installLogging(): Unit = {
+    SLF4JBridgeHandler.removeHandlersForRootLogger()
+    SLF4JBridgeHandler.install()
+    logger.info(s"Logging initialized (DEBUG enabled: ${logger.underlying.isDebugEnabled})")
+  }
 
   def main(args: Array[String]): Unit = {
+    installLogging()
+
     val zones = Settings.Zones.map { z =>
       val zone = new InMemoryZone(z.origin)
       new Thread() {

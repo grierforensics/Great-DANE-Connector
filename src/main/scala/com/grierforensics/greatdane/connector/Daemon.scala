@@ -8,6 +8,8 @@ import com.typesafe.scalalogging.LazyLogging
   * See: https://commons.apache.org/proper/commons-daemon/jsvc.html
   */
 class Daemon extends LazyLogging {
+  Service.installLogging()
+
   var service: Service = _
 
   /** Create any necessary resources */
