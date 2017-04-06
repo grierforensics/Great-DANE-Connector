@@ -9,17 +9,19 @@ import org.xbill.DNS.{Record, SMIMEARecord}
 class ConnectorSpec extends FlatSpec {
   import TestUtils.Values._
 
-  "A Connector" should "return None if certificate(s) are specified" in {
+  "A Connector" should "return None for key and cert if certificate(s) are specified" in {
     val connector = TestUtils.makeTestConnector
-    assert(connector.provisionUser(testAddress, Seq(testCertPem)).isEmpty)
+    val user = connector.provisionUser(testAddress, Seq(testCertPem))
+
+    assert(user.privKey.isEmpty)
+    assert(user.cert.isEmpty)
   }
 
   it should "return a key and cert if certificate(s) are not specified" in {
     val connector = TestUtils.makeTestConnector
-    val keyAndCert = connector.provisionUser(testAddress, Seq())
+    val provisionedUser = connector.provisionUser(testAddress, Seq())
 
-    assert(keyAndCert.isDefined)
-    assert(TestUtils.isValidSmime(testAddress, keyAndCert.get.cert))
+    assert(TestUtils.isValidSmime(testAddress, provisionedUser.cert.get))
   }
 
   it should "add to DNS valid SMIMEA record(s) for the given email address in provisionUser" in {

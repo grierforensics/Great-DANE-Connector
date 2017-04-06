@@ -6,7 +6,7 @@ import javax.ws.rs._
 import javax.ws.rs.core.MediaType
 
 case class ProvisionRequest(name: Option[String], certificates: Option[Seq[String]])
-case class ProvisionResponse(privateKey: String, certificate: String)
+case class ProvisionResponse(records: Seq[String], privateKey: String, certificate: String)
 
 @Secured
 @Path("/v1/")
@@ -16,22 +16,21 @@ class ApiResource(connector: Connector) {
 
   @POST
   @Path("/user/{email}")
-  def provisionUser(@PathParam("email") emailAddress: String, body: ProvisionRequest): Option[ProvisionResponse] = {
+  def provisionUser(@PathParam("email") emailAddress: String, body: ProvisionRequest): ProvisionResponse = {
     val certificates = if (body == null || (body != null && body.certificates.getOrElse(Seq()).isEmpty)) {
       Seq()
     } else {
       body.certificates.get
     }
 
-    val keyAndCert = try {
+    val provisionedUser = try {
       connector.provisionUser(emailAddress, certificates)
     } catch {
       case DomainNotFoundException(msg) => throw new BadRequestException(msg)
     }
 
-    keyAndCert flatMap { kc =>
-      Some(ProvisionResponse(kc.pemKey, kc.pemCert))
-    }
+
+    ProvisionResponse(provisionedUser.records, provisionedUser.pemKey, provisionedUser.pemCert)
   }
 
   @DELETE

@@ -17,9 +17,10 @@ import org.xbill.DNS._
 
 case class DnsParams(name: String, certificateUsage: Int, selector: Int, matchingType: Int, certificateData: String)
 
-case class KeyAndCert(privKey: PrivateKey, cert: X509Certificate) {
-  def pemKey: String = Converters.toPem(privKey)
-  def pemCert: String = Converters.toPem(cert)
+case class ProvisionedUser(rrecords: Seq[Record], privKey: Option[PrivateKey], cert: Option[X509Certificate]) {
+  def pemKey: String = privKey.map(Converters.toPem(_)).getOrElse("")
+  def pemCert: String = cert.map(Converters.toPem(_)).getOrElse("")
+  def records: Seq[String] = rrecords.map(_.toString)
 }
 
 case class EmailAddressNotFoundException(emailAddress: String) extends Exception(s"Email address not found: $emailAddress")
@@ -31,48 +32,33 @@ class Connector(dns: Seq[DnsZone]) {
   import scala.collection.immutable.HashMap
   val zones = HashMap(dns.map(z => (z.origin, z)):_*)
 
-  def provisionUser(emailAddress: String, certificates: Seq[String]): Option[KeyAndCert] = {
-    provisionUserX509(emailAddress, certificates.map(Converters.fromPem))
-  }
-
-  def provisionUserX509(emailAddress: String, certificates: Seq[X509Certificate]): Option[KeyAndCert] = {
+  def provisionUser(emailAddress: String, certificates: Seq[String]): ProvisionedUser = {
     val domain = emailDomain(emailAddress)
     val zone = zones.getOrElse(domain, throw DomainNotFoundException(domain))
 
-    def addRecords(certs: Seq[X509Certificate]): Unit = {
+    def addRecords(certs: Seq[X509Certificate]): Seq[Record] = {
       val rrecords: Seq[Record] = certs map { cert =>
-        val entry = createEntry(emailAddress, cert)
-
-        val rdata = entry.getRDATA
-
-        // TODO: move this to DNS-centric location to handle defaults (IN, TTL, etc.)
-        new SMIMEARecord(
-          // TODO: better way to create absolute name?
-          new Name(entry.getDomainName + '.'),
-          DClass.IN, TTL.MAX_VALUE, rdata(0), rdata(1), rdata(2), rdata.drop(3)
-        )
+        smimeaRecord(emailAddress, Some(cert))
       }
 
       zone.addRecords(rrecords)
+      rrecords
     }
 
     if (certificates.isEmpty) {
       val (privKey, cert) = CertificateGenerator.makeKeyAndCertificate(emailAddress)
-      addRecords(Seq(cert))
-      Some(KeyAndCert(privKey, cert))
+      val records = addRecords(Seq(cert))
+      ProvisionedUser(records, Some(privKey), Some(cert))
     } else {
-      addRecords(certificates)
-      None
+      val records = addRecords(certificates.map(Converters.fromPem))
+      ProvisionedUser(records, None, None)
     }
   }
 
   def deprovisionUser(emailAddress: String): Unit = {
-    val selector = selectorFactory.createSelector(emailAddress)
     val domain = emailDomain(emailAddress)
     val zone = zones.getOrElse(domain, throw DomainNotFoundException(domain))
-    // TODO: move this to DNS-centric location to handle defaults (IN, TTL, etc.)
-    val rr = new SMIMEARecord(new Name(selector.getDomainName + '.'), DClass.IN, TTL.MAX_VALUE, 3, 0, 0, Array())
-
+    val rr = smimeaRecord(emailAddress, None)
     zone.removeRecords(rr.getName.toString).orElse(throw EmailAddressNotFoundException(emailAddress))
   }
 
@@ -102,11 +88,27 @@ class Connector(dns: Seq[DnsZone]) {
     }
     emailAddress.substring(start)
   }
+
+  def smimeaRecord(emailAddress: String, certificate: Option[X509Certificate]): SMIMEARecord = {
+    val (domain, rdata) = certificate match {
+      case Some(cert) =>
+        val entry = createEntry(emailAddress, cert)
+        (entry.getDomainName, entry.getRDATA)
+      case None =>
+        val selector = selectorFactory.createSelector(emailAddress)
+        (selector.getDomainName, Array[Byte](3, 0, 0))
+    }
+
+    new SMIMEARecord(
+      // TODO: better way to create absolute name?
+      new Name(domain + '.'),
+      DClass.IN, TTL.MAX_VALUE, rdata(0), rdata(1), rdata(2), rdata.drop(3)
+    )
+  }
 }
 
 object Connector {
   //def fromHex(s: String): Array[Byte] = Hex.decode(s)
 
   def Default: Connector = new Connector(Settings.Zones.map(z => new InMemoryZone(z.origin)))
-
 }

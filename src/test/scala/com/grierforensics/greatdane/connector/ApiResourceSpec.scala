@@ -126,12 +126,13 @@ class ApiResourceSpec extends FlatSpec {
     }
   }
 
-  it should "return nothing when certificates are specified to provisionUser" in {
+  it should "return empty key and cert when certificates are specified to provisionUser" in {
     val (code, resp) = post(s"/user/$testAddress", s"""{"name": "foo", "certificates": ["${testCertPem.replaceAll("[\\n\\r]+", "\\\\n")}"]}""")
     assert(code == 200)
 
-    // Jackson Scala serializes None to the string "null", which is fine for now
-    assert(resp.length < 5)
+    val presp = Mapper.readValue(resp, classOf[ProvisionResponse])
+    assert(presp.privateKey.isEmpty)
+    assert(presp.certificate.isEmpty)
   }
 
   it should "return a private key and cert when no body is provided to provisionUser" in {
