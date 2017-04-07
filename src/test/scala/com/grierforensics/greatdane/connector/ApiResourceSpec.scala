@@ -6,7 +6,6 @@ import java.net.{HttpURLConnection, URL}
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.grierforensics.greatdane.connector.dns.InMemoryZone
 import org.apache.commons.io.IOUtils
 import org.scalatest.FlatSpec
 

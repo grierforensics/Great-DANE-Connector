@@ -23,6 +23,9 @@ libraryDependencies ++= Seq(
   "com.fasterxml.jackson.jaxrs" % "jackson-jaxrs-json-provider" % "2.8.7",
   "com.fasterxml.jackson.module" % "jackson-module-scala_2.12" % "2.8.7",
 
+  "io.swagger" % "swagger-jersey2-jaxrs" % "1.5.13",
+  "io.swagger" %% "swagger-scala-module" % "1.0.3",
+
   "dnsjava" % "dnsjava" % "2.1.8",
 
   "org.bouncycastle" % "bcprov-jdk15on" % "1.56",

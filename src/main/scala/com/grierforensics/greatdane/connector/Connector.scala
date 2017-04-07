@@ -12,7 +12,6 @@ import org.bouncycastle.cert.X509CertificateHolder
 import org.bouncycastle.cert.dane.{DANEEntry, DANEEntryFactory, DANEEntrySelectorFactory, TruncatingDigestCalculator}
 import org.bouncycastle.operator.DigestCalculator
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder
-import org.bouncycastle.util.encoders.Hex
 import org.xbill.DNS._
 
 case class DnsParams(name: String, certificateUsage: Int, selector: Int, matchingType: Int, certificateData: String)

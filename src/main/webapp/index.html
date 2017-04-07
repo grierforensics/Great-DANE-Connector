@@ -56,6 +56,8 @@
         <pre id="privateKey"></pre>
         <label for="certificate">Certificate:</label>
         <pre id="certificate"></pre>
+        <label for="smimearr">SMIMEA Record:</label>
+        <pre id="smimearr"></pre>
     </div>
 
 </div>
@@ -80,6 +82,7 @@ $(function () {
                 $('#provision-result').show();
                 $('#privateKey').text(resp.privateKey);
                 $('#certificate').text(resp.certificate);
+                $('#smimearr').text(resp.records[0]);
             },
             error: function (obj, err, detail) {
                 console.log(err + ': ' + detail + '(' + obj + ')');

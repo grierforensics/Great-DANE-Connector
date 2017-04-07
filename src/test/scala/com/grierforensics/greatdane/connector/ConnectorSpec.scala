@@ -2,7 +2,7 @@
 
 package com.grierforensics.greatdane.connector
 
-import com.grierforensics.greatdane.connector.dns.{DnsZone, InMemoryZone}
+import com.grierforensics.greatdane.connector.dns.DnsZone
 import org.scalatest.FlatSpec
 import org.xbill.DNS.{Record, SMIMEARecord}
 

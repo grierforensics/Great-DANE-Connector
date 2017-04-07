@@ -13,6 +13,8 @@ import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.grierforensics.greatdane.connector.dns.{DnsZoneFileWriter, InMemoryZone}
 import com.typesafe.scalalogging.LazyLogging
+import io.swagger.jaxrs.config.{BeanConfig, SwaggerContextService}
+import io.swagger.models.auth.{ApiKeyAuthDefinition, In}
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.{DefaultServlet, ServletContextHandler, ServletHolder}
 import org.glassfish.jersey.logging.LoggingFeature
@@ -72,9 +74,7 @@ class AuthenticationFilter extends ContainerRequestFilter {
   * @param port
   */
 class Service(connector: Connector, port: Int) extends LazyLogging {
-  private val server = new Server(port)
-  private val context = new ServletContextHandler(server, "/")
-
+  // The following is the same as creating a JAX-RS Application
   private val apiConfig = new ResourceConfig
   apiConfig.register(new CatchAllExceptionMapper, ContractProvider.NO_PRIORITY)
   apiConfig.register(new ScalaJacksonProvider(), ContractProvider.NO_PRIORITY)
@@ -83,16 +83,45 @@ class Service(connector: Connector, port: Int) extends LazyLogging {
   apiConfig.register(new LoggingFeature(Logger.getLogger(getClass.getName),
     LoggingFeature.Verbosity.HEADERS_ONLY), ContractProvider.NO_PRIORITY)
 
+  // Set up Swagger for automatic API documentation
+  apiConfig.register(classOf[io.swagger.jaxrs.listing.ApiListingResource])
+  apiConfig.register(classOf[io.swagger.jaxrs.listing.SwaggerSerializers])
+
+  {
+    val beanConfig = new BeanConfig
+    beanConfig.setTitle("Great DANE Connector")
+    beanConfig.setContact("grierforensics.com")
+    beanConfig.setDescription("Great DANE Connector REST API")
+    beanConfig.setVersion("1.0.0")
+    beanConfig.setSchemes(Array[String]("http"))
+    beanConfig.setHost(s"localhost:$port")
+    beanConfig.setBasePath("/api/v1")
+
+    // Note: the package appears to be necessary!
+    beanConfig.setResourcePackage("com.grierforensics.greatdane")
+    beanConfig.setScan(true)
+
+    val swagger = beanConfig.getSwagger
+    swagger.securityDefinition("apiKey", new ApiKeyAuthDefinition("Authorization", In.HEADER))
+    new SwaggerContextService().updateSwagger(swagger)
+  }
+
+  private val server = new Server(port)
+  private val context = new ServletContextHandler(server, "/")
+
   // The API servlet provides the entire REST API
-  private val apiServlet = new ServletHolder("api", new ServletContainer(apiConfig))
-  context.addServlet(apiServlet, "/api/*")
+  {
+    val holder = new ServletHolder("api", new ServletContainer(apiConfig))
+    context.addServlet(holder, "/api/v1/*")
+  }
 
   // The default servlet serves static HTML content, such as the API docs
-  private val defaultServlet = new ServletHolder("default", classOf[DefaultServlet])
-  defaultServlet.setInitParameter("resourceBase", "src/main/webapp")
-  defaultServlet.setInitParameter("dirAllowed", "true")
-  context.addServlet(defaultServlet, "/")
-
+  {
+    val holder = new ServletHolder("default", classOf[DefaultServlet])
+    holder.setInitParameter("resourceBase", "src/main/webapp")
+    holder.setInitParameter("dirAllowed", "true")
+    context.addServlet(holder, "/")
+  }
 
   /** Runs the service indefinitely */
   def run(): Unit = {
