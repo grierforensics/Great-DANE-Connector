@@ -1,7 +1,18 @@
 $ORIGIN example.com.
 $TTL 300
 
-@ IN SOA ns1.example.com admin.example.com. 3014070234 30 30 1209600 30
-                NS              ns1.example.com.
-                NS              ns2.example.com.
-                MX      10      mail.example.com.
+@   IN  SOA ns1.example.com admin.example.com. (
+            20170410    ; serial
+            604800      ; refresh
+            86400       ; retry
+            2419200     ; expire
+            604800)     ; negative cache ttl
+
+        NS  ns1.example.com.
+        NS  ns2.example.com.
+        MX  10  mail.example.com.
+
+ns1     IN  A   127.0.0.1
+ns2     IN  A   127.0.0.1
+
+example.com.    A   127.0.0.1

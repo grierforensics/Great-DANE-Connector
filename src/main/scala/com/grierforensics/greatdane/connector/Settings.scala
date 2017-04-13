@@ -34,8 +34,9 @@ object Settings {
     )
   }
 
-  val DnsServers: Seq[String] = config.getStringList("dns").asScala
+  val SmimeaTtl: Long = config.getLong("smimea.ttl")
 
+  val DnsServers: Seq[String] = config.getStringList("dns").asScala
 
   val DistinguishedName: String = "C=US,ST=Maryland,L=Baltimore,O=Grier Forensics,CN=Great DANE Connector"
   val CertificateExpiryDays: Int = 365

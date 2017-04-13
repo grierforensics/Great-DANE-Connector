@@ -14,15 +14,21 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 
-object DemoClient {
+object ProvisionUser {
   def main(args: Array[String]): Unit = {
-    //val host = args(0)
-    //val port = args(1)
 
-    val emailAddress = args(0)
-    val certPem = if (args.length > 1) {
-      new String(Files.readAllBytes(Paths.get(args(1))), StandardCharsets.UTF_8)
-    } else ""
+    def die = {
+      println("Usage: provision-user <email-address> [<certificate file>]")
+      sys.exit(1)
+    }
+    val (emailAddress, certPem) = args.toList match {
+      case email :: tail => tail match {
+        case Nil => (email, "")
+        case certFile :: Nil => (email, new String(Files.readAllBytes(Paths.get(certFile)), StandardCharsets.UTF_8))
+        case _ => die
+      }
+      case _ => die
+    }
 
     val client = HttpClients.createDefault()
     val uri = new URI(s"http://localhost:35353/api/v1/user/$emailAddress")

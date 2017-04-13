@@ -88,7 +88,7 @@ class Connector(dns: Seq[DnsZone]) {
     emailAddress.substring(start)
   }
 
-  def smimeaRecord(emailAddress: String, certificate: Option[X509Certificate]): SMIMEARecord = {
+  def smimeaRecord(emailAddress: String, certificate: Option[X509Certificate]): Record = {
     val (domain, rdata) = certificate match {
       case Some(cert) =>
         val entry = createEntry(emailAddress, cert)
@@ -101,7 +101,7 @@ class Connector(dns: Seq[DnsZone]) {
     new SMIMEARecord(
       // TODO: better way to create absolute name?
       new Name(domain + '.'),
-      DClass.IN, TTL.MAX_VALUE, rdata(0), rdata(1), rdata(2), rdata.drop(3)
+      DClass.IN, Settings.SmimeaTtl, rdata(0), rdata(1), rdata(2), rdata.drop(3)
     )
   }
 }
