@@ -11,7 +11,7 @@ class InMemoryZone(override val origin: String) extends DnsZone {
   val rrecords = new mutable.HashMap[String, mutable.Set[Record]] with mutable.MultiMap[String, Record]
 
   override def addRecord(record: Record): Unit = {
-    println(s"Added DNS record: ${record.toString}")
+    //println(s"Added DNS record: ${record.toString}")
     rrecords.addBinding(record.getName.toString, record)
   }
 
@@ -19,12 +19,11 @@ class InMemoryZone(override val origin: String) extends DnsZone {
     //rrecords.remove(name).map(_.toSet)
     rrecords.remove(name).map { s =>
       val set = s.toSet
-      set map { record =>
-        println(s"Removing DNS record: ${record.toString}")
-        record
-      }
+      //      set foreach { record =>
+      //        println(s"Removing DNS record: ${record.toString}")
+      //      }
       set
-      }
+    }
   }
 
   override def records: Seq[Record] = rrecords.values.flatten.toSeq

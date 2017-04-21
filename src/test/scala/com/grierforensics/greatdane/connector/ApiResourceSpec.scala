@@ -159,12 +159,12 @@ class ApiResourceSpec extends FlatSpec {
   }
 
   it should "return HTTP 404 if emailAddress doesn't exist in deprovisionUser" in {
-    val (code, resp) = delete(s"/user/dne@$testOrigin")
+    val (code, resp) = delete(s"/user/dne@$testDomain")
     assert(code == 404)
   }
 
   it should "return HTTP 400 if the domain is invalid" in {
-    val badOrigin = testOrigin.replace("com", "net")
+    val badOrigin = testDomain.replace("com", "net")
 
     for ((code, resp) <- Seq(
       post(s"/user/foo@$badOrigin"),

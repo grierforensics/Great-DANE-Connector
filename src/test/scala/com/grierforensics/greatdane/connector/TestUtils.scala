@@ -23,8 +23,9 @@ object TestUtils {
       override def loadIdentity: JcaPKIXIdentity = testIdentity
     }
 
-    val testOrigin = "example.com"
-    val testAddress = "foo@example.com"
+    val testDomain = "example.com"
+    val testOrigin = s"_smimecert.$testDomain"
+    val testAddress = s"foo@$testDomain"
     // TODO: create a static certificate instead of dynamically creating one every time tests are run
     val (testKey, testCert) = new CertificateGenerator(testIdentityLoader).makeKeyAndCertificate(testAddress)
     val (testKeyPem, testCertPem) = (Converters.toPem(testKey), Converters.toPem(testCert))

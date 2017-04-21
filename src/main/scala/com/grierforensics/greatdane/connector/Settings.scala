@@ -23,18 +23,15 @@ object Settings {
   val Port: Int = config.getInt("port")
   val ApiKey: String = config.getString("apiKey")
 
-  case class ZoneFileDetails(origin: String, baseFile: String, outFile: String, writePeriod: Int)
+  case class ZoneFileDetails(origin: String, baseFile: String, outFile: String, ttl: Long, writePeriod: Int)
 
-  val Zones: Seq[ZoneFileDetails] = config.getConfigList("zoneFiles").asScala.map { obj =>
-    ZoneFileDetails(
-      obj.getString("origin"),
-      obj.getString("baseFile"),
-      obj.getString("outFile"),
-      obj.getInt("writePeriod")
-    )
-  }
-
-  val SmimeaTtl: Long = config.getLong("smimea.ttl")
+  val Zone = ZoneFileDetails(
+    config.getString("zone.origin"),
+    config.getString("zone.basefile"),
+    config.getString("zone.outfile"),
+    config.getLong("zone.ttl"),
+    config.getInt("zone.write.period")
+  )
 
   val KeyAlgorithm: String = config.getString("key.algorithm")
   val KeyBits: Int = config.getInt("key.bits")

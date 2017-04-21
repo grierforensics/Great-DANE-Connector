@@ -23,17 +23,14 @@ case class ProvisionedUser(rrecords: Seq[Record], privKey: Option[PrivateKey], c
 }
 
 case class EmailAddressNotFoundException(emailAddress: String) extends Exception(s"Email address not found: $emailAddress")
-case class DomainNotFoundException(domain: String) extends Exception(s"Invalid domain: $domain")
+case class DomainNotFoundException(address: String) extends Exception(s"Invalid domain: $address")
 
-class Connector(certificateGenerator: CertificateGenerator, dns: Seq[DnsZone]) {
-  def this(certificateGenerator: CertificateGenerator, dns: DnsZone) = this(certificateGenerator, Seq(dns))
-
-  import scala.collection.immutable.HashMap
-  val zones = HashMap(dns.map(z => (z.origin, z)):_*)
+class Connector(certificateGenerator: CertificateGenerator, zone: DnsZone) {
 
   def provisionUser(emailAddress: String, certificates: Seq[String]): ProvisionedUser = {
-    val domain = emailDomain(emailAddress)
-    val zone = zones.getOrElse(domain, throw DomainNotFoundException(domain))
+    if (!validEmailAddress(emailAddress)) {
+      throw DomainNotFoundException(emailAddress)
+    }
 
     def addRecords(certs: Seq[X509Certificate]): Seq[Record] = {
       val rrecords: Seq[Record] = certs map { cert =>
@@ -55,8 +52,9 @@ class Connector(certificateGenerator: CertificateGenerator, dns: Seq[DnsZone]) {
   }
 
   def deprovisionUser(emailAddress: String): Unit = {
-    val domain = emailDomain(emailAddress)
-    val zone = zones.getOrElse(domain, throw DomainNotFoundException(domain))
+    if (!validEmailAddress(emailAddress)) {
+      throw DomainNotFoundException(emailAddress)
+    }
     val rr = smimeaRecord(emailAddress, None)
     zone.removeRecords(rr.getName.toString).orElse(throw EmailAddressNotFoundException(emailAddress))
   }
@@ -88,6 +86,8 @@ class Connector(certificateGenerator: CertificateGenerator, dns: Seq[DnsZone]) {
     emailAddress.substring(start)
   }
 
+  private def validEmailAddress(emailAddress: String): Boolean = zone.origin == s"_smimecert.${emailDomain(emailAddress)}"
+
   def smimeaRecord(emailAddress: String, certificate: Option[X509Certificate]): Record = {
     val (domain, rdata) = certificate match {
       case Some(cert) =>
@@ -101,7 +101,7 @@ class Connector(certificateGenerator: CertificateGenerator, dns: Seq[DnsZone]) {
     new SMIMEARecord(
       // TODO: better way to create absolute name?
       new Name(domain + '.'),
-      DClass.IN, Settings.SmimeaTtl, rdata(0), rdata(1), rdata(2), rdata.drop(3)
+      DClass.IN, Settings.Zone.ttl, rdata(0), rdata(1), rdata(2), rdata.drop(3)
     )
   }
 }
@@ -109,7 +109,8 @@ class Connector(certificateGenerator: CertificateGenerator, dns: Seq[DnsZone]) {
 object Connector {
   //def fromHex(s: String): Array[Byte] = Hex.decode(s)
 
-  val zones = Settings.Zones.map { z =>
+  val zone = {
+    val z = Settings.Zone
     val zone = new InMemoryZone(z.origin)
     new Thread() {
       val writer = new DnsZoneFileWriter(zone, z.baseFile, z.outFile)
@@ -123,5 +124,5 @@ object Connector {
     zone
   }
 
-  def Default: Connector = new Connector(new CertificateGenerator(new FilesystemIdentityLoader), zones)
+  def Default: Connector = new Connector(new CertificateGenerator(new FilesystemIdentityLoader), zone)
 }
