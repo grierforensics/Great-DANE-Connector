@@ -8,18 +8,30 @@ import com.grierforensics.greatdane.connector.dns.InMemoryZone
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x500.style.{BCStyle, IETFUtils}
 import org.bouncycastle.asn1.x509.{GeneralName, KeyPurposeId}
+import org.bouncycastle.pkix.jcajce.JcaPKIXIdentity
 
 object TestUtils {
 
   object Values {
+    val testIdentity = {
+      val kp = CertificateGenerator.makeKeyPair
+      val cert = CertificateGenerator.makeCertificate(kp, "test@grierforensics.com", kp, "CN=Test")
+      new JcaPKIXIdentity(kp.getPrivate, Array(cert))
+    }
+
+    val testIdentityLoader = new IdentityLoader {
+      override def loadIdentity: JcaPKIXIdentity = testIdentity
+    }
+
     val testOrigin = "example.com"
     val testAddress = "foo@example.com"
     // TODO: create a static certificate instead of dynamically creating one every time tests are run
-    val (testKey, testCert) = CertificateGenerator.makeKeyAndCertificate(testAddress)
+    val (testKey, testCert) = new CertificateGenerator(testIdentityLoader).makeKeyAndCertificate(testAddress)
     val (testKeyPem, testCertPem) = (Converters.toPem(testKey), Converters.toPem(testCert))
   }
 
-  def makeTestConnector: Connector = new Connector(Seq(new InMemoryZone(Values.testOrigin)))
+  def makeCertGenerator: CertificateGenerator = new CertificateGenerator(Values.testIdentityLoader)
+  def makeTestConnector: Connector = new Connector(makeCertGenerator, new InMemoryZone(Values.testOrigin))
 
   def issuerDN(cert: X509Certificate): String = cert.getIssuerDN.toString
 

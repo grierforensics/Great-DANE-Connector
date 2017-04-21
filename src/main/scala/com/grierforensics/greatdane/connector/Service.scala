@@ -11,7 +11,6 @@ import javax.ws.rs.{NotAuthorizedException, Priorities, WebApplicationException}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.grierforensics.greatdane.connector.dns.{DnsZoneFileWriter, InMemoryZone}
 import com.typesafe.scalalogging.LazyLogging
 import io.swagger.jaxrs.config.{BeanConfig, SwaggerContextService}
 import io.swagger.models.auth.{ApiKeyAuthDefinition, In}
@@ -148,21 +147,7 @@ object Service extends LazyLogging {
   def main(args: Array[String]): Unit = {
     installLogging()
 
-    val zones = Settings.Zones.map { z =>
-      val zone = new InMemoryZone(z.origin)
-      new Thread() {
-        val writer = new DnsZoneFileWriter(zone, z.baseFile, z.outFile)
-        override def run(): Unit = {
-          while (true) {
-            writer.writeZoneFile()
-            Thread.sleep(z.writePeriod)
-          }
-        }
-      }.start()
-      zone
-    }
-    val connector = new Connector(zones)
-    //val connector = Connector.Default
+    val connector = Connector.Default
 
     val service = new Service(connector, Settings.Host, Settings.Port)
     service.run()

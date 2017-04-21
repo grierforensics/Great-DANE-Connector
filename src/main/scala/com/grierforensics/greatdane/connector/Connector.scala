@@ -5,7 +5,7 @@ package com.grierforensics.greatdane.connector
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
 
-import com.grierforensics.greatdane.connector.dns.{DnsZone, InMemoryZone}
+import com.grierforensics.greatdane.connector.dns.{DnsZone, DnsZoneFileWriter, InMemoryZone}
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier
 import org.bouncycastle.cert.X509CertificateHolder
@@ -25,8 +25,8 @@ case class ProvisionedUser(rrecords: Seq[Record], privKey: Option[PrivateKey], c
 case class EmailAddressNotFoundException(emailAddress: String) extends Exception(s"Email address not found: $emailAddress")
 case class DomainNotFoundException(domain: String) extends Exception(s"Invalid domain: $domain")
 
-class Connector(dns: Seq[DnsZone]) {
-  def this(dns: DnsZone) = this(Seq(dns))
+class Connector(certificateGenerator: CertificateGenerator, dns: Seq[DnsZone]) {
+  def this(certificateGenerator: CertificateGenerator, dns: DnsZone) = this(certificateGenerator, Seq(dns))
 
   import scala.collection.immutable.HashMap
   val zones = HashMap(dns.map(z => (z.origin, z)):_*)
@@ -45,7 +45,7 @@ class Connector(dns: Seq[DnsZone]) {
     }
 
     if (certificates.isEmpty) {
-      val (privKey, cert) = CertificateGenerator.makeKeyAndCertificate(emailAddress)
+      val (privKey, cert) = certificateGenerator.makeKeyAndCertificate(emailAddress)
       val records = addRecords(Seq(cert))
       ProvisionedUser(records, Some(privKey), Some(cert))
     } else {
@@ -109,5 +109,19 @@ class Connector(dns: Seq[DnsZone]) {
 object Connector {
   //def fromHex(s: String): Array[Byte] = Hex.decode(s)
 
-  def Default: Connector = new Connector(Settings.Zones.map(z => new InMemoryZone(z.origin)))
+  val zones = Settings.Zones.map { z =>
+    val zone = new InMemoryZone(z.origin)
+    new Thread() {
+      val writer = new DnsZoneFileWriter(zone, z.baseFile, z.outFile)
+      override def run(): Unit = {
+        while (true) {
+          writer.writeZoneFile()
+          Thread.sleep(z.writePeriod)
+        }
+      }
+    }.start()
+    zone
+  }
+
+  def Default: Connector = new Connector(new CertificateGenerator(new FilesystemIdentityLoader), zones)
 }

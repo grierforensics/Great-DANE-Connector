@@ -2,8 +2,6 @@
 
 package com.grierforensics.greatdane.connector.dns
 
-import java.io.BufferedWriter
-import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 
 import org.xbill.DNS._

@@ -37,7 +37,7 @@ class ConnectorSpec extends FlatSpec {
       override def records = Seq(lastRecord)
     }
 
-    val connector = new Connector(dns)
+    val connector = new Connector(TestUtils.makeCertGenerator, dns)
     connector.provisionUser(testAddress, Seq(testCertPem))
 
     val record = dns.lastRecord
@@ -62,7 +62,7 @@ class ConnectorSpec extends FlatSpec {
       override def records: Seq[Record] = rrecords.values.flatten.toSeq
     }
 
-    val connector = new Connector(dns)
+    val connector = new Connector(TestUtils.makeCertGenerator, dns)
     connector.provisionUser(testAddress, Seq(testCertPem))
 
     val name = dns.rrecords.keys.head
@@ -89,7 +89,7 @@ class ConnectorSpec extends FlatSpec {
   }
 
   it should "return EmailNotFoundException in deprovisionUser if the email address is not found in DNS" in {
-    val connector = new Connector(new DnsZone {
+    val connector = new Connector(TestUtils.makeCertGenerator, new DnsZone {
       override def addRecord(record: Record) = ???
       override def removeRecords(name: String) = None
       override def origin: String = testOrigin

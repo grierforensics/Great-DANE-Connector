@@ -5,7 +5,10 @@ package com.grierforensics.greatdane.connector
 import org.scalatest.FlatSpec
 
 class CertificateGeneratorSpec extends FlatSpec {
-  "The CertificateGenerator" should "generate RSA keys" in {
+
+  import TestUtils.Values._
+
+  "The CertificateGenerator" should "generate RSA keys by default" in {
     val keyPair = CertificateGenerator.makeKeyPair
     assert(keyPair.getPublic.getAlgorithm == "RSA")
     assert(keyPair.getPrivate.getAlgorithm == "RSA")
@@ -16,16 +19,10 @@ class CertificateGeneratorSpec extends FlatSpec {
     // TODO: check for 2048 bits
   }
 
-  it should "create certificates with Great DANE Connector authority" in {
-    val (key, cert) = CertificateGenerator.makeKeyAndCertificate("foo@example.com")
-
-    assert(TestUtils.issuerDN(cert) == Settings.DistinguishedName)
-  }
-
   it should "create certificates suitable for S/MIME" in {
     val email = "foo@example.com"
 
-    val (key, cert) = CertificateGenerator.makeKeyAndCertificate(email)
+    val (key, cert) = new CertificateGenerator(testIdentityLoader).makeKeyAndCertificate(email)
 
     // Subject: emailAddress=<email> (backwards-compatibility)
     assert(TestUtils.emailAddress(cert) == email)
@@ -45,6 +42,5 @@ class CertificateGeneratorSpec extends FlatSpec {
     assert(!TestUtils.isCA(cert))
   }
 
-  // TODO: verify that certificate is properly signed by Connector
-
+  // TODO: verify that certificate is properly signed
 }

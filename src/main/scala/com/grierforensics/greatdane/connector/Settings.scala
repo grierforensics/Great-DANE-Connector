@@ -36,8 +36,12 @@ object Settings {
 
   val SmimeaTtl: Long = config.getLong("smimea.ttl")
 
-  val DnsServers: Seq[String] = config.getStringList("dns").asScala
+  val KeyAlgorithm: String = config.getString("key.algorithm")
+  val KeyBits: Int = config.getInt("key.bits")
 
-  val DistinguishedName: String = "C=US,ST=Maryland,L=Baltimore,O=Grier Forensics,CN=Great DANE Connector"
+  val SigningKeyPath: String = config.getString("signing.key.path")
+  val SigningCertificatePath: String = config.getString("signing.certificate.path")
+  val SignatureAlgorithm: String = config.getString("signature.algorithm")
+
   val CertificateExpiryDays: Int = 365
 }
