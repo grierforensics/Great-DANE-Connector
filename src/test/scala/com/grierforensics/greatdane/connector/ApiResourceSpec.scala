@@ -34,7 +34,7 @@ class ApiResourceSpec extends FlatSpec {
   }
   */
 
-  val service = new Service(TestUtils.makeTestConnector, port)
+  val service = new Service(TestUtils.makeTestConnector, "localhost", port)
   new Thread() {
     override def run(): Unit = {
       service.run()

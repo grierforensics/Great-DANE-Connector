@@ -19,7 +19,7 @@ object Settings {
   val SecurityProvider = new BouncyCastleProvider
   Security.addProvider(SecurityProvider)
 
-
+  val Host: String = config.getString("host")
   val Port: Int = config.getInt("port")
   val ApiKey: String = config.getString("apiKey")
 

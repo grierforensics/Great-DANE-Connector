@@ -26,8 +26,7 @@ class Daemon extends LazyLogging {
         val connector = Connector.Default
         //logger.info(s"Using DNS addresses: ${Settings.Default.DnsServers.mkString(", ")}")
 
-        val port = Settings.Port
-        val service = new Service(connector, port)
+        val service = new Service(connector, Settings.Host, Settings.Port)
         service.run()
       }
     }.start()

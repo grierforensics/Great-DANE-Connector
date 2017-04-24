@@ -73,7 +73,7 @@ class AuthenticationFilter extends ContainerRequestFilter {
   * @param connector
   * @param port
   */
-class Service(connector: Connector, port: Int) extends LazyLogging {
+class Service(connector: Connector, host: String, port: Int) extends LazyLogging {
   // The following is the same as creating a JAX-RS Application
   private val apiConfig = new ResourceConfig
   apiConfig.register(new CatchAllExceptionMapper, ContractProvider.NO_PRIORITY)
@@ -94,7 +94,7 @@ class Service(connector: Connector, port: Int) extends LazyLogging {
     beanConfig.setDescription("Great DANE Connector REST API")
     beanConfig.setVersion("1.0.0")
     beanConfig.setSchemes(Array[String]("http"))
-    beanConfig.setHost(s"localhost:$port")
+    beanConfig.setHost(s"$host:$port")
     beanConfig.setBasePath("/api/v1")
 
     // Note: the package appears to be necessary!
@@ -118,7 +118,7 @@ class Service(connector: Connector, port: Int) extends LazyLogging {
   // The default servlet serves static HTML content, such as the API docs
   {
     val holder = new ServletHolder("default", classOf[DefaultServlet])
-    holder.setInitParameter("resourceBase", "src/main/webapp")
+    holder.setInitParameter("resourceBase", getClass.getClassLoader.getResource("webapp").toExternalForm)
     holder.setInitParameter("dirAllowed", "true")
     context.addServlet(holder, "/")
   }
@@ -164,8 +164,7 @@ object Service extends LazyLogging {
     val connector = new Connector(zones)
     //val connector = Connector.Default
 
-    val port = Settings.Port
-    val service = new Service(connector, port)
+    val service = new Service(connector, Settings.Host, Settings.Port)
     service.run()
   }
 }
