@@ -24,8 +24,9 @@ case class ProvisionedUser(rrecords: Seq[Record], privKey: Option[PrivateKey], c
 
 case class EmailAddressNotFoundException(emailAddress: String) extends Exception(s"Email address not found: $emailAddress")
 case class DomainNotFoundException(address: String) extends Exception(s"Invalid domain: $address")
+case object CertificateGenerationDisabledException extends Exception("Certificate generation not enabled")
 
-class Connector(certificateGenerator: CertificateGenerator, zone: DnsZone) {
+class Connector(zone: DnsZone, certificateGenerator: Option[CertificateGenerator]) {
 
   def provisionUser(emailAddress: String, certificates: Seq[String]): ProvisionedUser = {
     if (!validEmailAddress(emailAddress)) {
@@ -42,7 +43,9 @@ class Connector(certificateGenerator: CertificateGenerator, zone: DnsZone) {
     }
 
     if (certificates.isEmpty) {
-      val (privKey, cert) = certificateGenerator.makeKeyAndCertificate(emailAddress)
+      val (privKey, cert) = certificateGenerator
+        .getOrElse(throw CertificateGenerationDisabledException)
+        .makeKeyAndCertificate(emailAddress)
       val records = addRecords(Seq(cert))
       ProvisionedUser(records, Some(privKey), Some(cert))
     } else {
@@ -109,7 +112,7 @@ class Connector(certificateGenerator: CertificateGenerator, zone: DnsZone) {
 object Connector {
   //def fromHex(s: String): Array[Byte] = Hex.decode(s)
 
-  val zone = {
+  val zone: DnsZone = {
     val z = Settings.Zone
     val zone = new InMemoryZone(z.origin)
     new Thread() {
@@ -124,5 +127,5 @@ object Connector {
     zone
   }
 
-  def Default: Connector = new Connector(new CertificateGenerator(new FilesystemIdentityLoader), zone)
+  def Default: Connector = new Connector(zone, CertificateGenerator.Default)
 }

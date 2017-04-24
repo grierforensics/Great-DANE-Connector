@@ -46,6 +46,7 @@ class ApiResource(connector: Connector) {
       connector.provisionUser(emailAddress, certificates)
     } catch {
       case DomainNotFoundException(msg) => throw new BadRequestException(msg)
+      case e@CertificateGenerationDisabledException => throw new BadRequestException(e.getMessage)
     }
 
     ProvisionResponse(provisionedUser.records, provisionedUser.pemKey, provisionedUser.pemCert)

@@ -9,7 +9,7 @@ class CertificateGeneratorSpec extends FlatSpec {
   import TestUtils.Values._
 
   "The CertificateGenerator" should "generate RSA keys by default" in {
-    val keyPair = CertificateGenerator.makeKeyPair
+    val keyPair = TestUtils.makeCertGenerator.makeKeyPair
     assert(keyPair.getPublic.getAlgorithm == "RSA")
     assert(keyPair.getPrivate.getAlgorithm == "RSA")
 
@@ -22,7 +22,7 @@ class CertificateGeneratorSpec extends FlatSpec {
   it should "create certificates suitable for S/MIME" in {
     val email = "foo@example.com"
 
-    val (key, cert) = new CertificateGenerator(testIdentityLoader).makeKeyAndCertificate(email)
+    val (key, cert) = TestUtils.makeCertGenerator.makeKeyAndCertificate(email)
 
     // Subject: emailAddress=<email> (backwards-compatibility)
     assert(TestUtils.emailAddress(cert) == email)

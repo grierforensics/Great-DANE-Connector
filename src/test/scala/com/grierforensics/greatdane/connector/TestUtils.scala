@@ -8,31 +8,32 @@ import com.grierforensics.greatdane.connector.dns.InMemoryZone
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x500.style.{BCStyle, IETFUtils}
 import org.bouncycastle.asn1.x509.{GeneralName, KeyPurposeId}
+import org.bouncycastle.openssl.jcajce.JcaPKIXIdentityBuilder
 import org.bouncycastle.pkix.jcajce.JcaPKIXIdentity
 
 object TestUtils {
 
   object Values {
-    val testIdentity = {
-      val kp = CertificateGenerator.makeKeyPair
-      val cert = CertificateGenerator.makeCertificate(kp, "test@grierforensics.com", kp, "CN=Test")
-      new JcaPKIXIdentity(kp.getPrivate, Array(cert))
-    }
-
-    val testIdentityLoader = new IdentityLoader {
-      override def loadIdentity: JcaPKIXIdentity = testIdentity
-    }
 
     val testDomain = "example.com"
     val testOrigin = s"_smimecert.$testDomain"
     val testAddress = s"foo@$testDomain"
-    // TODO: create a static certificate instead of dynamically creating one every time tests are run
-    val (testKey, testCert) = new CertificateGenerator(testIdentityLoader).makeKeyAndCertificate(testAddress)
+
+    // Self-signed certificate and private key for foo@example.com
+    // Generated using `new CertificateGenerator("RSA", 2048, "SHA256WithRSA", 3650, None)`,
+    // then written to files using `Converters.toPem`
+    // Note: it could have been generated using OpenSSL too
+    val testIdentity: JcaPKIXIdentity = new JcaPKIXIdentityBuilder().build(
+      getClass.getClassLoader.getResourceAsStream("test-key.pem"),
+      getClass.getClassLoader.getResourceAsStream("test-cert.pem")
+    )
+    val (testKey, testCert) = (testIdentity.getPrivateKey, testIdentity.getX509Certificate)
+
     val (testKeyPem, testCertPem) = (Converters.toPem(testKey), Converters.toPem(testCert))
   }
 
-  def makeCertGenerator: CertificateGenerator = new CertificateGenerator(Values.testIdentityLoader)
-  def makeTestConnector: Connector = new Connector(makeCertGenerator, new InMemoryZone(Values.testOrigin))
+  def makeCertGenerator: CertificateGenerator = new CertificateGenerator("RSA", 2048, "SHA256WithRSA", 5, None)
+  def makeTestConnector: Connector = new Connector(new InMemoryZone(Values.testOrigin), Some(makeCertGenerator))
 
   def issuerDN(cert: X509Certificate): String = cert.getIssuerDN.toString
 

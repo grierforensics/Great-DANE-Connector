@@ -38,17 +38,14 @@ class SHA1DigestCalculator extends DigestCalculator {
   }
 }
 
-trait IdentityLoader {
-  def loadIdentity: JcaPKIXIdentity
-}
-
-class FilesystemIdentityLoader extends IdentityLoader {
-  override def loadIdentity: JcaPKIXIdentity = {
+object FilesystemIdentityLoader {
+  def loadIdentity(keyPath: String, certPath: String): JcaPKIXIdentity = {
+    // Example loading from resource:
     //val keyIs = getClass.getClassLoader.getResourceAsStream("key.pem")
     //val certIs = getClass.getClassLoader.getResourceAsStream("cert.pem")
-    val keyIs = Files.newInputStream(Paths.get(Settings.SigningKeyPath))
+    val keyIs = Files.newInputStream(Paths.get(keyPath))
     try {
-      val certIs = Files.newInputStream(Paths.get(Settings.SigningCertificatePath))
+      val certIs = Files.newInputStream(Paths.get(certPath))
       try {
         new JcaPKIXIdentityBuilder().setProvider(Settings.SecurityProvider).build(keyIs, certIs)
       } finally {
@@ -65,56 +62,44 @@ class FilesystemIdentityLoader extends IdentityLoader {
   * Based on Bouncy Castle test code, found here:
   * https://github.com/bcgit/bc-java/blob/master/mail/src/test/java/org/bouncycastle/mail/smime/test/NewSMIMEEnvelopedTest.java
   */
-class CertificateGenerator(identityLoader: IdentityLoader) {
+class CertificateGenerator(keyAlgorithm: String, keyBits: Int,
+                           signatureAlgorithm: String, expiryDays: Int,
+                          identity: Option[JcaPKIXIdentity]) {
   import CertificateGenerator._
 
-  private val identity: JcaPKIXIdentity = identityLoader.loadIdentity
+  // See: https://github.com/bcgit/bc-java/blob/master/mail/src/test/java/org/bouncycastle/mail/smime/test/CMSTestUtil.java
+  private val kpg = KeyPairGenerator.getInstance(keyAlgorithm, Settings.SecurityProvider)
+  kpg.initialize(keyBits, Srand)
 
-  private val signingKeyPair = new KeyPair(identity.getX509Certificate.getPublicKey, identity.getPrivateKey)
+  private def makeContentSignerBuilder(issPub: PublicKey): JcaContentSignerBuilder =
+    new JcaContentSignerBuilder(signatureAlgorithm).setProvider(Settings.SecurityProvider)
 
   /** Create new private key and public S/MIME certificate for the given email address
+    *
+    * If this CertificateGenerator instance was instantiated without a signing identity
+    * this will generate a self-signed certificate.
     *
     * @param emailAddress Email address for which to create S/MIME certificate
     * @return new private key and X.509 certificate
     */
   def makeKeyAndCertificate(emailAddress: String): (PrivateKey, X509Certificate) = {
     val reciKP = makeKeyPair
-    val issuerDN = identity.getX509Certificate.getIssuerDN.getName
-    val reciCert = makeCertificate(reciKP, emailAddress, signingKeyPair, issuerDN)
+
+    // If identity is None, create a self-signed certificate
+    val (signingKeyPair, issuingDN) = identity.fold((reciKP, s"CN=$emailAddress")) { id =>
+      (new KeyPair(id.getX509Certificate.getPublicKey, id.getPrivateKey),
+      id.getX509Certificate.getIssuerDN.getName)
+    }
+
+    val reciCert = makeCertificate(reciKP, emailAddress, signingKeyPair, issuingDN)
     (reciKP.getPrivate, reciCert)
   }
-
-}
-
-object CertificateGenerator {
-  private val Srand = new SecureRandom()
-
-  // See: https://github.com/bcgit/bc-java/blob/master/mail/src/test/java/org/bouncycastle/mail/smime/test/CMSTestUtil.java
-  private val Kpg = KeyPairGenerator.getInstance(Settings.KeyAlgorithm, Settings.SecurityProvider)
-  Kpg.initialize(Settings.KeyBits, Srand)
-
-  private val ExtUtils = new X509ExtensionUtils(new SHA1DigestCalculator)
-
-  // TODO: not guaranteed to be unique
-  def SerialNumber(): BigInteger = BigInteger.probablePrime(20*8, Srand)
-
-  private def makeContentSignerBuilder(issPub: PublicKey): JcaContentSignerBuilder =
-    new JcaContentSignerBuilder(Settings.SignatureAlgorithm).setProvider(Settings.SecurityProvider)
-
-  private def createSubjectKeyId(pubKey: SubjectPublicKeyInfo): SubjectKeyIdentifier =
-    ExtUtils.createSubjectKeyIdentifier(pubKey)
-
-  private def createSubjectKeyId(pubKey: PublicKey): SubjectKeyIdentifier =
-    ExtUtils.createSubjectKeyIdentifier(SubjectPublicKeyInfo.getInstance(pubKey.getEncoded))
-
-  private def createAuthorityKeyId(pubKey: PublicKey): AuthorityKeyIdentifier =
-    ExtUtils.createAuthorityKeyIdentifier(SubjectPublicKeyInfo.getInstance(pubKey.getEncoded))
 
   /** Creates a new 2048-bit RSA key pair
     *
     * @return new RSA KeyPair
     */
-  def makeKeyPair: KeyPair = Kpg.generateKeyPair()
+  def makeKeyPair: KeyPair = kpg.generateKeyPair()
 
   /** Creates a new S/MIME certificate using the given KeyPairs and email address
     *
@@ -126,8 +111,8 @@ object CertificateGenerator {
     * @return new X.509 S/MIME certificate
     */
   def makeCertificate(subjectKP: KeyPair, subjectEmail: String,
-                              issuingKP: KeyPair, issuingDN: String,
-                              ca: Boolean = false): X509Certificate = {
+                      issuingKP: KeyPair, issuingDN: String,
+                      ca: Boolean = false): X509Certificate = {
     val subPub = subjectKP.getPublic
     val issPriv = issuingKP.getPrivate
     val issPub = issuingKP.getPublic
@@ -138,7 +123,7 @@ object CertificateGenerator {
       new X500Name(issuingDN),
       SerialNumber(),
       new Date(System.currentTimeMillis()),
-      new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * Settings.CertificateExpiryDays)),
+      new Date(System.currentTimeMillis() + (1000L * 60 * 60 * 24 * expiryDays)),
       new X500Name(s"emailAddress=$subjectEmail"),
       subPub)
 
@@ -187,6 +172,32 @@ object CertificateGenerator {
     cert
   }
 
+}
+
+object CertificateGenerator {
+  private val Srand = new SecureRandom()
+
+  private val ExtUtils = new X509ExtensionUtils(new SHA1DigestCalculator)
+
+  // TODO: not guaranteed to be unique
+  def SerialNumber(): BigInteger = BigInteger.probablePrime(20*8, Srand)
+
+  private def createSubjectKeyId(pubKey: SubjectPublicKeyInfo): SubjectKeyIdentifier =
+    ExtUtils.createSubjectKeyIdentifier(pubKey)
+
+  private def createSubjectKeyId(pubKey: PublicKey): SubjectKeyIdentifier =
+    ExtUtils.createSubjectKeyIdentifier(SubjectPublicKeyInfo.getInstance(pubKey.getEncoded))
+
+  private def createAuthorityKeyId(pubKey: PublicKey): AuthorityKeyIdentifier =
+    ExtUtils.createAuthorityKeyIdentifier(SubjectPublicKeyInfo.getInstance(pubKey.getEncoded))
+
+  def Default: Option[CertificateGenerator] = {
+    Settings.Generator.map { gen =>
+      val identity = FilesystemIdentityLoader.loadIdentity(gen.signingKey, gen.signingCert)
+      new CertificateGenerator(gen.keyAlgo, gen.keyBits, gen.signingAlgo, gen.expiryDays, Some(identity))
+    }
+  }
+
   def main(args: Array[String]): Unit = {
     if (args.length < 1) {
       println("usage: make-cert <email address>")
@@ -194,8 +205,10 @@ object CertificateGenerator {
     }
 
     val email = args(0)
-    val (key, cert) = new CertificateGenerator(new FilesystemIdentityLoader).makeKeyAndCertificate(email)
-    println(Converters.toPem(cert))
-    println(Converters.toPem(key))
+    Default.fold(println("Certificate generation not enabled!")) { generator =>
+      val (key, cert) = generator.makeKeyAndCertificate(email)
+      println(Converters.toPem(cert))
+      println(Converters.toPem(key))
+    }
   }
 }

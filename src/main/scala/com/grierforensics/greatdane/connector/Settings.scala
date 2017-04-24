@@ -23,7 +23,8 @@ object Settings {
   val Port: Int = config.getInt("port")
   val ApiKey: String = config.getString("apiKey")
 
-  case class ZoneFileDetails(origin: String, baseFile: String, outFile: String, ttl: Long, writePeriod: Int)
+  case class ZoneFileDetails(origin: String, baseFile: String, outFile: String,
+                             ttl: Long, writePeriod: Int)
 
   val Zone = ZoneFileDetails(
     config.getString("zone.origin"),
@@ -33,12 +34,24 @@ object Settings {
     config.getInt("zone.write.period")
   )
 
-  val KeyAlgorithm: String = config.getString("key.algorithm")
-  val KeyBits: Int = config.getInt("key.bits")
+  case class GeneratorDetails(keyAlgo: String, keyBits: Int, signingKey: String,
+                              signingCert: String, signingAlgo: String, expiryDays: Int)
 
-  val SigningKeyPath: String = config.getString("signing.key.path")
-  val SigningCertificatePath: String = config.getString("signing.certificate.path")
-  val SignatureAlgorithm: String = config.getString("signature.algorithm")
+  private val certs = config.getConfig("certificates")
+  val Generator: Option[GeneratorDetails] = if (certs.getBoolean("generate")) {
+    Some(
+      GeneratorDetails(
+        certs.getString("key.algorithm"),
+        certs.getInt("key.bits"),
 
-  val CertificateExpiryDays: Int = 365
+        certs.getString("signing.key"),
+        certs.getString("signing.certificate"),
+        certs.getString("signing.algorithm"),
+
+        certs.getInt("expiry.days")
+      )
+    )
+  } else {
+    None
+  }
 }
