@@ -16,7 +16,7 @@ import org.xbill.DNS._
 
 case class DnsParams(name: String, certificateUsage: Int, selector: Int, matchingType: Int, certificateData: String)
 
-case class ProvisionedUser(rrecords: Seq[Record], privKey: Option[PrivateKey], cert: Option[X509Certificate]) {
+case class GeneratedData(rrecords: Seq[Record], privKey: Option[PrivateKey], cert: Option[X509Certificate]) {
   def pemKey: String = privKey.map(Converters.toPem(_)).getOrElse("")
   def pemCert: String = cert.map(Converters.toPem(_)).getOrElse("")
   def records: Seq[String] = rrecords.map(_.toString)
@@ -26,39 +26,61 @@ case class EmailAddressNotFoundException(emailAddress: String) extends Exception
 case class DomainNotFoundException(address: String) extends Exception(s"Invalid domain: $address")
 case object CertificateGenerationDisabledException extends Exception("Certificate generation not enabled")
 
+/** Connector adds and removes SMIMEA records from its configured Zone
+  *
+  * @param zone Zone maintained by this Connector
+  * @param certificateGenerator Optionally used to generate S/MIME certificates for new users
+  */
 class Connector(zone: DnsZone, certificateGenerator: Option[CertificateGenerator]) {
 
-  def provisionUser(emailAddress: String, certificates: Seq[String]): ProvisionedUser = {
+  /** Generates an SMIMEA record for `emailAddress` for each certificate.
+    *
+    * If no certificates are specified, a private key and certificate is generated for `emailAddress`
+    *
+    * @param emailAddress User's email address
+    * @param certificates Existing S/MIME certificates for the user
+    * @return Generated records, and optionally generated private key and certificate
+    */
+  def generateRecords(emailAddress: String, certificates: Seq[String]): GeneratedData = {
     if (!validEmailAddress(emailAddress)) {
       throw DomainNotFoundException(emailAddress)
     }
 
-    def addRecords(certs: Seq[X509Certificate]): Seq[Record] = {
-      val rrecords: Seq[Record] = certs map { cert =>
-        smimeaRecord(emailAddress, Some(cert))
-      }
-
-      zone.addRecords(rrecords)
-      rrecords
-    }
+    def genRecords(certs: Seq[X509Certificate]): Seq[Record] = certs.map(c => genSmimeaRecord(emailAddress, Some(c)))
 
     if (certificates.isEmpty) {
       val (privKey, cert) = certificateGenerator
         .getOrElse(throw CertificateGenerationDisabledException)
         .makeKeyAndCertificate(emailAddress)
-      val records = addRecords(Seq(cert))
-      ProvisionedUser(records, Some(privKey), Some(cert))
+      val records = genRecords(Seq(cert))
+      GeneratedData(records, Some(privKey), Some(cert))
     } else {
-      val records = addRecords(certificates.map(Converters.fromPem))
-      ProvisionedUser(records, None, None)
+      val records = genRecords(certificates.map(Converters.fromPem))
+      GeneratedData(records, None, None)
     }
   }
 
+  /** Generates SMIMEA record for `emailAddress` for each certificate and adds record to the Zone
+    *
+    * @param emailAddress User's email address
+    * @param certificates Existing S/MIME certificates for the user
+    * @return Generated records, and optionally generated private key and certificate
+    */
+  def provisionUser(emailAddress: String, certificates: Seq[String]): GeneratedData = {
+    val generated = generateRecords(emailAddress, certificates)
+    zone.addRecords(generated.rrecords)
+    generated
+  }
+
+  /** Removes all SMIMEA records for `emailAddress` from the Zone
+    *
+    * @param emailAddress User's email address
+    */
   def deprovisionUser(emailAddress: String): Unit = {
     if (!validEmailAddress(emailAddress)) {
       throw DomainNotFoundException(emailAddress)
     }
-    val rr = smimeaRecord(emailAddress, None)
+    val rr = genSmimeaRecord(emailAddress, None)
     zone.removeRecords(rr.getName.toString).orElse(throw EmailAddressNotFoundException(emailAddress))
   }
 
@@ -91,7 +113,7 @@ class Connector(zone: DnsZone, certificateGenerator: Option[CertificateGenerator
 
   private def validEmailAddress(emailAddress: String): Boolean = zone.origin == s"_smimecert.${emailDomain(emailAddress)}"
 
-  def smimeaRecord(emailAddress: String, certificate: Option[X509Certificate]): Record = {
+  private def genSmimeaRecord(emailAddress: String, certificate: Option[X509Certificate]): Record = {
     val (domain, rdata) = certificate match {
       case Some(cert) =>
         val entry = createEntry(emailAddress, cert)

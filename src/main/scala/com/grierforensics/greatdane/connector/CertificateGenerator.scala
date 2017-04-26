@@ -38,6 +38,7 @@ class SHA1DigestCalculator extends DigestCalculator {
   }
 }
 
+/** Loads a private key and certificate pair from disk */
 object FilesystemIdentityLoader {
   def loadIdentity(keyPath: String, certPath: String): JcaPKIXIdentity = {
     // Example loading from resource:

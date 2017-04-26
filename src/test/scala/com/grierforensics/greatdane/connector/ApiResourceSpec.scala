@@ -18,22 +18,6 @@ class ApiResourceSpec extends FlatSpec {
   val port = 35354
   val enginePort = 25354
 
-  /*class TestConnector extends Connector(new InMemoryZone(testOrigin)) {
-    val users = new scala.collection.mutable.HashMap[String, Seq[String]]
-
-    override def provisionUser(emailAddress: String, certificates: Seq[String]): Option[KeyAndCert] = {
-      users.put(emailAddress, certificates)
-      if (certificates.isEmpty) {
-        Some(KeyAndCert(testKey, testCert))
-      } else None
-    }
-
-    override def deprovisionUser(emailAddress: String): Unit = {
-      users.remove(emailAddress)
-    }
-  }
-  */
-
   val service = new Service(TestUtils.makeTestConnector, "localhost", port)
   new Thread() {
     override def run(): Unit = {
@@ -48,12 +32,16 @@ class ApiResourceSpec extends FlatSpec {
 
   val baseUrl = s"http://localhost:$port/api/v1"
 
-  def apiConn(url: String, method: String): HttpURLConnection = {
+  var apiKey = Settings.ApiKey
+
+  def apiConn(url: String, method: String, auth: Boolean): HttpURLConnection = {
     val conn = new URL(baseUrl + url).openConnection().asInstanceOf[HttpURLConnection]
     conn.setRequestMethod(method)
     conn.setRequestProperty("Content-Type", "application/json")
     conn.setRequestProperty("Accept", "application/json")
-    conn.setRequestProperty("Authorization", Settings.ApiKey)
+    if (auth) {
+      conn.setRequestProperty("Authorization", apiKey)
+    }
     conn
   }
 
@@ -62,8 +50,8 @@ class ApiResourceSpec extends FlatSpec {
     * @param url URL to GET
     * @return (HTTP response code, JSON response body)
     */
-  def get(url: String): (Int, String) = {
-    val conn = apiConn(url, "GET")
+  def get(url: String, auth: Boolean = true): (Int, String) = {
+    val conn = apiConn(url, "GET", auth)
 
     val code = conn.getResponseCode
     val json = if (code == 200) IOUtils.toString(conn.getInputStream, "utf-8") else ""
@@ -74,7 +62,7 @@ class ApiResourceSpec extends FlatSpec {
 
   /** Retrieves a JSON sequence given an email and type of resource requested */
   def makeUrl(email: String, kind: String): String = {
-    baseUrl + s"/${email}/$kind"
+    baseUrl + s"/$email/$kind"
   }
 
   /** Retrieves a JSON resource given an email and type of resource requested */
@@ -82,10 +70,10 @@ class ApiResourceSpec extends FlatSpec {
     makeUrl(email, kind) + s"/$index"
   }
 
-  def post(url: String): (Int, String) = post(url, "")
+  def post(url: String, auth: Boolean = true): (Int, String) = post(url, "", auth)
 
-  def post(url: String, input: String): (Int, String) = {
-    val conn = apiConn(url, "POST")
+  def post(url: String, input: String, auth: Boolean): (Int, String) = {
+    val conn = apiConn(url, "POST", auth)
     conn.setDoOutput(true)
 
     IOUtils.write(input, conn.getOutputStream, "utf-8")
@@ -95,8 +83,8 @@ class ApiResourceSpec extends FlatSpec {
     (code, json)
   }
 
-  def put(url: String): (Int, String) = {
-    val conn = apiConn(url, "PUT")
+  def put(url: String, auth: Boolean = true): (Int, String) = {
+    val conn = apiConn(url, "PUT", auth)
     conn.setDoOutput(true)
 
     //IOUtils.write(input, conn.getOutputStream, "utf-8")
@@ -106,8 +94,8 @@ class ApiResourceSpec extends FlatSpec {
     (code, json)
   }
 
-  def delete(url: String): (Int, String) = {
-    val conn = apiConn(url, "DELETE")
+  def delete(url: String, auth: Boolean = true): (Int, String) = {
+    val conn = apiConn(url, "DELETE", auth)
     val code = conn.getResponseCode
     (code, "")
   }
@@ -126,7 +114,10 @@ class ApiResourceSpec extends FlatSpec {
   }
 
   it should "return empty key and cert when certificates are specified to provisionUser" in {
-    val (code, resp) = post(s"/user/$testAddress", s"""{"name": "foo", "certificates": ["${testCertPem.replaceAll("[\\n\\r]+", "\\\\n")}"]}""")
+    val (code, resp) = post(s"/user/$testAddress",
+      s"""{"name": "foo", "certificates": ["${testCertPem.replaceAll("[\\n\\r]+", "\\\\n")}"]}""",
+      auth = true
+    )
     assert(code == 200)
 
     val presp = Mapper.readValue(resp, classOf[ProvisionResponse])
@@ -143,8 +134,8 @@ class ApiResourceSpec extends FlatSpec {
 
   it should "return a private key and cert when no certificates are provided to provisionUser" in {
     for ((code, resp) <- Seq(
-      post(s"/user/$testAddress", """{"name": "foo"}"""),
-      post(s"/user/$testAddress", """{"name": "foo", "certificates": []}""")
+      post(s"/user/$testAddress", """{"name": "foo"}""", auth = true),
+      post(s"/user/$testAddress", """{"name": "foo", "certificates": []}""", auth = true)
     )) {
       assert(code == 200)
       val presp = Mapper.readValue(resp, classOf[ProvisionResponse])
@@ -153,7 +144,10 @@ class ApiResourceSpec extends FlatSpec {
   }
 
   it should "return HTTP 204 on successful deprovisionUser" in {
-    post(s"/user/$testAddress", s"""{"name": "foo", "certificates": ["${testCertPem.replaceAll("[\\n\\r]+", "\\\\n")}"]}""")
+    post(s"/user/$testAddress",
+      s"""{"name": "foo", "certificates": ["${testCertPem.replaceAll("[\\n\\r]+", "\\\\n")}"]}""",
+      auth = true
+    )
     val (code, resp) = delete(s"/user/$testAddress")
     assert(code == 204)
   }
@@ -163,18 +157,43 @@ class ApiResourceSpec extends FlatSpec {
     assert(code == 404)
   }
 
-  it should "return HTTP 400 if the domain is invalid" in {
+  it should "return HTTP 403 if the domain is invalid" in {
     val badOrigin = testDomain.replace("com", "net")
 
     for ((code, resp) <- Seq(
       post(s"/user/foo@$badOrigin"),
       delete(s"/user/foo@$badOrigin")
     )) {
-      assert(code == 400)
+      assert(code == 403)
     }
   }
 
-  // all API endpoints return 401 if API key not specified
-  // all API endpoints return 401 if API key is invalid
+  it should "return HTTP 401 if not authenticated" in {
+    for ((code, resp) <- Seq(
+      post(s"/user/$testAddress", auth = false),
+      delete(s"/user/$testAddress", auth = false)
+    )) {
+      assert(code == 401)
+    }
+  }
 
+  it should "return HTTP 401 is API key is invalid" in {
+    val origApiKey = apiKey
+    apiKey = "abcde"
+    try {
+      for ((code, resp) <- Seq(
+        post(s"/user/$testAddress"),
+        delete(s"/user/$testAddress")
+      )) {
+        assert(code == 401)
+      }
+    } finally {
+      apiKey = origApiKey
+    }
+  }
+
+  it should "allow unauthenticated requests for generating records" in {
+    val (code, resp) = post(s"/record/$testAddress", auth = false)
+    assert(code == 200)
+  }
 }

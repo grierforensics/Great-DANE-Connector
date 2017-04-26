@@ -24,8 +24,23 @@ class ConnectorSpec extends FlatSpec {
     assert(TestUtils.isValidSmime(testAddress, provisionedUser.cert.get))
   }
 
+  it should "not add SMIMEA records to DNS when only generating records" in {
+    val zone = new DnsZone {
+      var myRecords = new scala.collection.mutable.ArrayBuffer[Record]
+      override def origin = testOrigin
+      override def addRecord(record: Record): Unit = myRecords += record
+      override def removeRecords(name: String): Option[Set[Record]] = Some(Set())
+      override def records = myRecords
+    }
+
+    val connector = new Connector(zone, Some(TestUtils.makeCertGenerator))
+    connector.generateRecords(testAddress, Seq(testCertPem))
+
+    assert(zone.myRecords.isEmpty)
+  }
+
   it should "add to DNS valid SMIMEA record(s) for the given email address in provisionUser" in {
-    val dns = new DnsZone {
+    val zone = new DnsZone {
       var lastRecord: Record = _
       override def origin = testOrigin
       override def addRecord(record: Record): Unit = lastRecord = record
@@ -37,10 +52,10 @@ class ConnectorSpec extends FlatSpec {
       override def records = Seq(lastRecord)
     }
 
-    val connector = new Connector(dns, Some(TestUtils.makeCertGenerator))
+    val connector = new Connector(zone, Some(TestUtils.makeCertGenerator))
     connector.provisionUser(testAddress, Seq(testCertPem))
 
-    val record = dns.lastRecord
+    val record = zone.lastRecord
     assert(record != null)
     assert(record.getType == org.xbill.DNS.Type.SMIMEA)
     val smimea = record.asInstanceOf[SMIMEARecord]
@@ -49,7 +64,7 @@ class ConnectorSpec extends FlatSpec {
 
   it should "remove from DNS all SMIMEA record(s) for the given email address in deprovisionUser" in {
     // TODO: test removal of more than one record!
-    val dns = new DnsZone {
+    val zone = new DnsZone {
       import scala.collection.mutable
       val rrecords = new mutable.HashMap[String, mutable.Set[Record]] with mutable.MultiMap[String, Record]
       override def origin: String = testOrigin
@@ -62,16 +77,16 @@ class ConnectorSpec extends FlatSpec {
       override def records: Seq[Record] = rrecords.values.flatten.toSeq
     }
 
-    val connector = new Connector(dns, Some(TestUtils.makeCertGenerator))
+    val connector = new Connector(zone, Some(TestUtils.makeCertGenerator))
     connector.provisionUser(testAddress, Seq(testCertPem))
 
-    val name = dns.rrecords.keys.head
-    val preRecords = dns.rrecords.get(name)
+    val name = zone.rrecords.keys.head
+    val preRecords = zone.rrecords.get(name)
     assert(preRecords.isDefined && preRecords.get.size > 0)
 
     connector.deprovisionUser(testAddress)
 
-    val postRecords = dns.rrecords.get(name)
+    val postRecords = zone.rrecords.get(name)
     assert(postRecords.isEmpty)
   }
 
