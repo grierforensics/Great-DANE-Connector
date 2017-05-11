@@ -4,7 +4,17 @@ version := "1.0"
 
 scalaVersion := "2.12.1"
 
-packAutoSettings
+val configJvmOpt = Seq("-Dconfig.file=${PROG_HOME}/conf/connector.conf")
+
+packAutoSettings ++ Seq(
+  // Ensure each command-line script loads the custom config file
+  packJvmOpts := Map(
+    "service" -> configJvmOpt,
+    "daemon" -> configJvmOpt,
+    "certificate-generator" -> configJvmOpt,
+    "provision-user" -> configJvmOpt
+  )
+)
 
 libraryDependencies ++= Seq(
   "com.typesafe" % "config" % "1.3.1",

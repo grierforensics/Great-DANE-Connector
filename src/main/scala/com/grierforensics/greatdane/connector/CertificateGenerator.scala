@@ -175,6 +175,8 @@ class CertificateGenerator(keyAlgorithm: String, keyBits: Int,
 
 }
 
+
+/** Testing tool for generating certificates signed by the configured signer */
 object CertificateGenerator {
   private val Srand = new SecureRandom()
 

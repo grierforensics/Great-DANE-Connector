@@ -6,6 +6,10 @@ import java.nio.file.{Files, Paths}
 
 import org.xbill.DNS._
 
+/** Stores all Zone information in-memory
+  *
+  * @param origin origin of DNS zone
+  */
 class InMemoryZone(override val origin: String) extends DnsZone {
   import scala.collection.mutable
   val rrecords = new mutable.HashMap[String, mutable.Set[Record]] with mutable.MultiMap[String, Record]
@@ -29,6 +33,12 @@ class InMemoryZone(override val origin: String) extends DnsZone {
   override def records: Seq[Record] = rrecords.values.flatten.toSeq
 }
 
+/** Periodically writes the configured zone to the output zone file
+  *
+  * @param zone in-memory zone updated by Connector
+  * @param baseZoneFilePath starting zone file to use as a template
+  * @param outZoneFilePath generate zone file path
+  */
 class DnsZoneFileWriter(zone: InMemoryZone, baseZoneFilePath: String, outZoneFilePath: String) {
   def writeZoneFile(): Unit = {
     // TODO: load once and re-use

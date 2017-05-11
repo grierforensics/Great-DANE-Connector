@@ -14,6 +14,7 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 
+/** Testing tool for provision users via a running Connector */
 object ProvisionUser {
   def main(args: Array[String]): Unit = {
 
@@ -31,13 +32,13 @@ object ProvisionUser {
     }
 
     val client = HttpClients.createDefault()
-    val uri = new URI(s"http://localhost:35353/api/v1/user/$emailAddress")
+    val uri = new URI(s"http://${Settings.Host}:${Settings.Port}/api/v1/user/$emailAddress")
     val post = new HttpPost(uri)
     post.addHeader(HttpHeaders.CONTENT_TYPE, "application/json")
     post.addHeader(HttpHeaders.AUTHORIZATION, Settings.ApiKey)
     println(post.toString)
 
-    val req = ProvisionRequest(Some("Foo"), if (certPem.length > 0) Some(Seq(certPem)) else None)
+    val req = ProvisionRequest(None, if (certPem.length > 0) Some(Seq(certPem)) else None)
     val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
     val json = mapper.writeValueAsString(req)
     println(json)

@@ -64,13 +64,14 @@ class AuthenticationFilter extends ContainerRequestFilter {
   }
 }
 
-/**
+/** Connector HTTP REST Service
   *
   * References used for constructing embedded server with static content:
   * - http://stackoverflow.com/a/20223103/1689220
   *
-  * @param connector
-  * @param port
+  * @param connector Connector instance
+  * @param host HTTP host on which to serve API
+  * @param port HTTP port on which to server API
   */
 class Service(connector: Connector, host: String, port: Int) extends LazyLogging {
   // The following is the same as creating a JAX-RS Application
