@@ -196,8 +196,8 @@ object CertificateGenerator {
 
   def Default: Option[CertificateGenerator] = {
     Settings.Generator.map { gen =>
-      val identity = FilesystemIdentityLoader.loadIdentity(gen.signingKey, gen.signingCert)
-      new CertificateGenerator(gen.keyAlgo, gen.keyBits, gen.signingAlgo, gen.expiryDays, Some(identity))
+      val identity = if (gen.selfSign) None else Some(FilesystemIdentityLoader.loadIdentity(gen.signingKey, gen.signingCert))
+      new CertificateGenerator(gen.keyAlgo, gen.keyBits, gen.signingAlgo, gen.expiryDays, identity)
     }
   }
 

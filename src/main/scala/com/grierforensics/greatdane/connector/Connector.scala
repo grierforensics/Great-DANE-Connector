@@ -42,10 +42,6 @@ class Connector(zone: DnsZone, certificateGenerator: Option[CertificateGenerator
     * @return Generated records, and optionally generated private key and certificate
     */
   def generateRecords(emailAddress: String, certificates: Seq[String]): GeneratedData = {
-    if (!validEmailAddress(emailAddress)) {
-      throw DomainNotFoundException(emailAddress)
-    }
-
     def genRecords(certs: Seq[X509Certificate]): Seq[Record] = certs.map(c => genSmimeaRecord(emailAddress, Some(c)))
 
     if (certificates.isEmpty) {
@@ -67,6 +63,10 @@ class Connector(zone: DnsZone, certificateGenerator: Option[CertificateGenerator
     * @return Generated records, and optionally generated private key and certificate
     */
   def provisionUser(emailAddress: String, certificates: Seq[String]): GeneratedData = {
+    if (!validEmailAddress(emailAddress)) {
+      throw DomainNotFoundException(emailAddress)
+    }
+
     val generated = generateRecords(emailAddress, certificates)
     zone.addRecords(generated.rrecords)
     generated
@@ -137,15 +137,20 @@ object Connector {
   val zone: DnsZone = {
     val z = Settings.Zone
     val zone = new InMemoryZone(z.origin)
-    new Thread() {
-      val writer = new DnsZoneFileWriter(zone, z.baseFile, z.outFile)
-      override def run(): Unit = {
-        while (true) {
-          writer.writeZoneFile()
-          Thread.sleep(z.writePeriod)
+
+    // Only read and generate zone file if configured to do so
+    if (Settings.ManageZone) {
+      new Thread() {
+        val writer = new DnsZoneFileWriter(zone, z.baseFile, z.outFile)
+        override def run(): Unit = {
+          while (true) {
+            writer.writeZoneFile()
+            Thread.sleep(z.writePeriod)
+          }
         }
-      }
-    }.start()
+      }.start()
+    }
+
     zone
   }
 

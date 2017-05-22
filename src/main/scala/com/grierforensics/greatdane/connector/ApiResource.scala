@@ -29,7 +29,6 @@ class ApiResource(connector: Connector) {
   )
   @ApiResponses(value = Array(
     new ApiResponse(code = 400, message = "Certificate generation disabled"),
-    new ApiResponse(code = 403, message = "Invalid domain in email address"),
     new ApiResponse(code = 200, message = "Record(s) successfully generated")
   ))
   def generateRecord(

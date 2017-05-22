@@ -4,7 +4,10 @@ version := "1.0"
 
 scalaVersion := "2.12.1"
 
-val configJvmOpt = Seq("-Dconfig.file=${PROG_HOME}/conf/connector.conf")
+val configJvmOpt = Seq(
+  "-Dconfig.file=${PROG_HOME}/conf/connector.conf",
+  "-Dlogback.configurationFile=${PROG_HOME}/conf/logback.xml"
+)
 
 packAutoSettings ++ Seq(
   // Ensure each command-line script loads the custom config file

@@ -26,6 +26,8 @@ object Settings {
   case class ZoneFileDetails(origin: String, baseFile: String, outFile: String,
                              ttl: Long, writePeriod: Int)
 
+  val ManageZone: Boolean = config.getBoolean("manageZone")
+
   val Zone = ZoneFileDetails(
     config.getString("zone.origin"),
     config.getString("zone.basefile"),
@@ -34,8 +36,9 @@ object Settings {
     config.getInt("zone.write.period")
   )
 
-  case class GeneratorDetails(keyAlgo: String, keyBits: Int, signingKey: String,
-                              signingCert: String, signingAlgo: String, expiryDays: Int)
+  case class GeneratorDetails(keyAlgo: String, keyBits: Int, selfSign: Boolean,
+                              signingKey: String, signingCert: String, signingAlgo: String,
+                              expiryDays: Int)
 
   private val certs = config.getConfig("certificates")
   val Generator: Option[GeneratorDetails] = if (certs.getBoolean("generate")) {
@@ -43,6 +46,8 @@ object Settings {
       GeneratorDetails(
         certs.getString("key.algorithm"),
         certs.getInt("key.bits"),
+
+        certs.getBoolean("selfSign"),
 
         certs.getString("signing.key"),
         certs.getString("signing.certificate"),
