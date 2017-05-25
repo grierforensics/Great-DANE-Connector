@@ -83,6 +83,7 @@ class ApiResource(connector: Connector) {
     } catch {
       case DomainNotFoundException(msg) => throw new ForbiddenException(msg)
       case e@CertificateGenerationDisabledException => throw new BadRequestException(e.getMessage)
+      case e@InvalidCertificateException(msg) => throw new BadRequestException(e.getMessage)
     }
 
     ProvisionResponse(generatedData.records, generatedData.pemKey, generatedData.pemCert)

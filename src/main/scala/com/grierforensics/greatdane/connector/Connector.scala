@@ -24,6 +24,7 @@ case class GeneratedData(rrecords: Seq[Record], privKey: Option[PrivateKey], cer
 
 case class EmailAddressNotFoundException(emailAddress: String) extends Exception(s"Email address not found: $emailAddress")
 case class DomainNotFoundException(address: String) extends Exception(s"Invalid domain: $address")
+case class InvalidCertificateException(msg: String) extends Exception(msg)
 case object CertificateGenerationDisabledException extends Exception("Certificate generation not enabled")
 
 /** Connector adds and removes SMIMEA records from its configured Zone

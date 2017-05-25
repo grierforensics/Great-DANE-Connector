@@ -43,7 +43,7 @@ object Converters {
       case holder: X509CertificateHolder => CertificateConverter.getCertificate(holder)
       // TODO: support public keys, warn/error for private keys
       // See https://gist.github.com/akorobov/6910564 for examples
-      case _ => throw new RuntimeException("Invalid PEM-encoded certificate.")
+      case _ => throw InvalidCertificateException("Invalid PEM-encoded certificate.")
     }
   }
 

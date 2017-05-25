@@ -115,4 +115,15 @@ class ConnectorSpec extends FlatSpec {
       connector.deprovisionUser(testAddress)
     }
   }
+
+  it should "throw InvalidCertificateException for malformed certificates in requests" in {
+    val connector = TestUtils.makeTestConnector
+    intercept[InvalidCertificateException] {
+      connector.provisionUser(testAddress, Seq(""))
+    }
+
+    intercept[InvalidCertificateException] {
+      connector.provisionUser(testAddress, Seq("foo"))
+    }
+  }
 }

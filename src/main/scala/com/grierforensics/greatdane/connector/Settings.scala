@@ -8,7 +8,6 @@ import com.typesafe.config.ConfigFactory
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 
 object Settings {
-  import scala.collection.JavaConverters._
 
   private val config = {
     val cfg = ConfigFactory.load()
