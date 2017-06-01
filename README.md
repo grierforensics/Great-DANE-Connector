@@ -10,7 +10,7 @@ database for S/MIME certificates, we can eliminate this barrier and finally
 make email completely confidential and authenticated.
 
 For more information on DANE SMIMEA, please see the
-[IETF RFC](https://datatracker.ietf.org/doc/draft-ietf-dane-smime/).
+[IETF RFC](https://tools.ietf.org/html/rfc8162).
 
 # Great DANE Connector
 
@@ -81,7 +81,7 @@ The `_smimecert.example.com.template` file is a sample DNS zone file containing
 only `SOA` and `NS` records. This zone's origin is `_smimecert.example.com`,
 meaning it contains records for the `_smimecert.example.com` subdomain. It
 generally makes sense to use the `_smimecert` zone cut as defined by the [DANE
-SMIMEA RFC](https://datatracker.ietf.org/doc/draft-ietf-dane-smime/), so as to
+SMIMEA RFC](https://tools.ietf.org/html/rfc8162), so as to
 avoid interfering with top-level domain records.
 
 By default, the Connector is configured to use this template to generate the
