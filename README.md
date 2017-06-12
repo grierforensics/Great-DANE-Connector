@@ -1,5 +1,7 @@
 # Great DANE
 
+<img src="https://tools.greatdanenow.com/GreatDaneLogo3.0_wTagline_WEB.png" align="right" width="300" />
+
 Great DANE is a suite of tools designed to enable users to send secure, private
 emails without having to explicitly exchange public keys. By default, email is
 sent in the clear (without encryption) and unsigned (unauthenticated). S/MIME
@@ -18,7 +20,7 @@ The Great DANE Connector gives organizations the ability to automatically
 publish DANE SMIMEA records for user email addresses. It also serves as a
 standalone tool for SMIMEA record generation.
 
-The Connector is implemented as an HTTP REST service and provides an API for 
+The Connector is implemented as an HTTP REST service and provides an API for
 
 1. Optionally generating an S/MIME certificate and private key for a user
 2. Publishing DANE SMIMEA records in the DNS
@@ -123,11 +125,11 @@ then publish an SMIMEA record for a user using the included `provision-user` too
     ```
     $CONNECTOR_HOME/bin/provision-user alice@example.com alice.smime-cert.pem
     ```
-    
+
 - Otherwise, ensure you've configured a signing key and certificate in
     `$CONNECTOR_HOME/connector.conf` (e.g. that of your organization) and allow
     the Connector to generate a certificate for the user:
-    
+
     ```
     $CONNECTOR_HOME/bin/provision-user bob@example.com
     ```
@@ -147,20 +149,20 @@ Note: Authentication is performed by providing the configured API key in the
 1. `POST /record/{email}`
 
     Generate a DANE SMIMEA record for each provided S/MIME certificate.
-    
+
     Parameters:
     - `email`: email address of user
     - `body`: JSON request body of the form:
-    
+
         ```
         {
           "name": "<user's name>",
           "certificates": ["PEM-encoded S/MIME certificates"]
         }
         ```
-        
+
     Response: JSON of the form:
-    
+
         ```
         {
             "records": ["Generated SMIMEA records"],
@@ -172,22 +174,22 @@ Note: Authentication is performed by providing the configured API key in the
 1. `POST /user/{email}`
 
     Provision a user by publishing one or more DANE SMIMEA records.
-    
+
     Requires authentication using the API key.
-    
+
     Parameters:
     - `email`: email address of user
     - `body`: JSON request body of the form:
-    
+
         ```
         {
           "name": "<user's name>",
           "certificates": ["PEM-encoded S/MIME certificates"]
         }
         ```
-        
+
     Response: JSON of the form:
-    
+
         ```
         {
             "records": ["Generated SMIMEA records"],
@@ -199,9 +201,9 @@ Note: Authentication is performed by providing the configured API key in the
 1. `DELETE /user/{email}`
 
     De-provision a user by deleting all DANE SMIMEA records for the user.
-    
+
     Requires authentication using the API key.
-    
+
     Parameters:
     - `email`: email address of user
 
