@@ -1,4 +1,4 @@
-name := "connector"
+name := "great-dane-connector"
 
 version := "1.0"
 
